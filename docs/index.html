@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PDFGist — AI PDF reader with your own model</title>
+    <meta
+      name="description"
+      content="Local-first PDF reader with streaming AI translation, summaries and document chat. Bring your own API key — works with any OpenAI-compatible endpoint. Free, AGPL-3.0."
+    />
+    <style>
+      :root {
+        --text: #182234;
+        --muted: #67718a;
+        --accent: #2563eb;
+        --line: #e3e7ee;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+        color: var(--text);
+        background: #f4f6f9;
+        line-height: 1.6;
+      }
+      main { max-width: 820px; margin: 0 auto; padding: 64px 24px; }
+      .hero { display: flex; align-items: center; gap: 18px; }
+      .hero img { width: 72px; height: 72px; border-radius: 16px; }
+      h1 { font-size: 34px; margin: 0; }
+      .tagline { font-size: 18px; color: var(--muted); margin: 6px 0 32px; }
+      h2 { font-size: 20px; margin-top: 40px; }
+      code {
+        background: #e9edf4;
+        padding: 2px 6px;
+        border-radius: 5px;
+        font-size: 0.9em;
+      }
+      ul { padding-left: 22px; }
+      li { margin: 6px 0; }
+      .cta {
+        display: inline-block;
+        margin-top: 8px;
+        padding: 10px 22px;
+        background: var(--accent);
+        color: #fff;
+        border-radius: 9px;
+        text-decoration: none;
+        font-weight: 600;
+      }
+      footer {
+        margin-top: 64px;
+        border-top: 1px solid var(--line);
+        padding-top: 20px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .shot {
+        margin: 28px 0;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #fff;
+        padding: 18px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="hero">
+        <img src="https://raw.githubusercontent.com/turinglambdaai/pdfgist/main/design/app-icon.png" alt="PDFGist icon" />
+        <div>
+          <h1>PDFGist</h1>
+          <p class="tagline">The AI PDF reader that brings your own model.</p>
+        </div>
+      </div>
+
+      <p>
+        Most AI PDF apps lock you into their subscription. <strong>PDFGist</strong> is a thin,
+        fast reader, and the intelligence is whatever model <em>you</em> point it at: any
+        OpenAI-compatible endpoint — OpenAI, DeepSeek, Kimi, SiliconFlow, Ollama (local) — with
+        your key stored on your machine and requests sent straight to your provider.
+      </p>
+
+      <div class="shot">
+        Screenshot placeholder — reader view with AI sidebar streaming a translation.
+      </div>
+
+      <h2>Highlights</h2>
+      <ul>
+        <li>Select any text, one click to translate — results stream in as they generate</li>
+        <li>One-click structured summaries of the current page, a selection, or the whole document</li>
+        <li>Chat with the document, grounded in the current page, your selection, or the first pages</li>
+        <li>Presets for DeepSeek, OpenAI, Moonshot Kimi, SiliconFlow and Ollama, or any custom base URL</li>
+        <li>Continuous-scroll reading with zoom, fit-width, document outline and keyboard navigation</li>
+        <li>Local-first: no account, no telemetry, keys in your user config directory</li>
+      </ul>
+
+      <h2>Get it</h2>
+      <p>
+        Installers for Windows (MSI / NSIS), macOS (dmg, Apple silicon) and Linux (deb / rpm /
+        AppImage) from GitHub Releases.
+      </p>
+      <a class="cta" href="https://github.com/turinglambdaai/pdfgist/releases">Download</a>
+
+      <footer>
+        PDFGist is free software under AGPL-3.0 and is not affiliated with Adobe or any LLM provider.
+        <a href="https://github.com/turinglambdaai/pdfgist">Source on GitHub</a>
+      </footer>
+    </main>
+  </body>
+</html>
