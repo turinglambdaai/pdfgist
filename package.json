@@ -1,0 +1,22 @@
+{
+  "name": "pdfgist",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "icon": "node scripts/make-icon.mjs && tauri icon design/app-icon.png"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "pdfjs-dist": "4.10.38"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "typescript": "~6.0.3",
+    "vite": "^8.0.16"
+  }
+}

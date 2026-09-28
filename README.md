@@ -1,0 +1,47 @@
+# PDFGist
+
+A local-first PDF reader with AI translation and summarization built in — bring your own API key. Works with any OpenAI-compatible endpoint: OpenAI, DeepSeek, Kimi, SiliconFlow, Ollama (local), and more. Built with Tauri 2 + PDF.js.
+
+![license](https://img.shields.io/badge/license-AGPL--3.0-blue) ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey) ![built with](https://img.shields.io/badge/built%20with-Tauri%202-orange)
+
+**English** · [中文](README.zh-CN.md)
+
+Most AI PDF apps lock you into their subscription. PDFGist takes the opposite approach: the app is a thin, fast reader, and the intelligence is whatever model *you* point it at. Your key, your model, your cost — stored locally, sent directly to the provider you choose. Nothing leaves your machine except the requests you make to your own provider.
+
+## Features
+
+- **PDF reading** — continuous scroll, zoom / fit-width, document outline, keyboard navigation
+- **Selection translation** — select any text, one click to translate, streaming result
+- **Page & document summaries** — one-click structured summaries of the current page, a selection, or the whole document
+- **Chat with the document** — ask questions grounded in the current page, your selection, or the first pages of the document
+- **Bring your own model** — presets for DeepSeek, OpenAI, Moonshot Kimi, SiliconFlow and Ollama, or any OpenAI-compatible base URL; model lists fetched on demand
+- **Local-first** — settings and API keys live in your user config directory; no account, no telemetry
+
+## Building from source
+
+Prerequisites: Node.js 22+, Rust, and the [Tauri 2 prerequisites](https://tauri.app/start/prerequisites/) for your platform.
+
+```bash
+npm install
+npm run tauri dev    # develop
+npm run tauri build  # bundle installers
+```
+
+Regenerate the app icon after changing `scripts/make-icon.mjs`:
+
+```bash
+npm run icon
+```
+
+## Roadmap
+
+- [ ] In-document search
+- [ ] Bilingual side-by-side view
+- [ ] Batch translation export (Markdown)
+- [ ] OCR for scanned PDFs
+- [ ] EPUB support
+- [ ] Notes export (Markdown, Obsidian-friendly)
+
+## License
+
+[AGPL-3.0](LICENSE)

@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDFGist</title>
+  </head>
+  <body>
+    <div id="app">
+      <header id="toolbar">
+        <input id="file-input" type="file" accept="application/pdf,.pdf" hidden />
+        <button id="btn-open" class="tool-btn" title="打开 PDF（Ctrl+O）">打开</button>
+        <div class="tool-sep"></div>
+        <button id="btn-prev" class="tool-btn icon-btn" title="上一页">‹</button>
+        <span id="page-indicator" class="page-indicator">– / –</span>
+        <button id="btn-next" class="tool-btn icon-btn" title="下一页">›</button>
+        <div class="tool-sep"></div>
+        <button id="btn-zoom-out" class="tool-btn icon-btn" title="缩小">−</button>
+        <button id="btn-zoom-reset" class="tool-btn zoom-label" title="重置缩放">100%</button>
+        <button id="btn-zoom-in" class="tool-btn icon-btn" title="放大">+</button>
+        <button id="btn-fit" class="tool-btn" title="适应宽度">适宽</button>
+        <div class="tool-sep"></div>
+        <button id="btn-outline" class="tool-btn" title="目录">目录</button>
+        <div class="spacer"></div>
+        <span id="doc-title" class="doc-title"></span>
+        <div class="spacer"></div>
+        <button id="btn-sidebar" class="tool-btn active" title="AI 助手">AI 助手</button>
+      </header>
+      <div id="main">
+        <aside id="outline-panel" class="hidden">
+          <div class="panel-header">目录</div>
+          <nav id="outline-tree"></nav>
+        </aside>
+        <div id="viewer-wrap">
+          <div id="viewer"></div>
+          <div id="empty-state">
+            <div class="empty-box">
+              <div class="empty-logo">PDFGist</div>
+              <p>把 PDF 拖到这里，或 <button id="btn-open-empty" class="link-btn">打开文件</button></p>
+              <p class="empty-sub">划词翻译 · 一键总结 · 与文档对话 · 接入自己的大模型 API</p>
+            </div>
+          </div>
+          <div id="drop-overlay" class="hidden">松开以打开 PDF</div>
+        </div>
+        <aside id="sidebar">
+          <nav id="sidebar-tabs">
+            <button class="tab-btn active" data-tab="translate">翻译</button>
+            <button class="tab-btn" data-tab="summarize">总结</button>
+            <button class="tab-btn" data-tab="chat">对话</button>
+            <button class="tab-btn" data-tab="settings">设置</button>
+          </nav>
+          <section id="tab-translate" class="tab-panel active">
+            <div class="panel-actions">
+              <button id="btn-translate-page" class="accent-btn">翻译本页</button>
+              <label class="inline-label">译入
+                <select id="target-lang"></select>
+              </label>
+            </div>
+            <div id="translate-list" class="card-list"></div>
+          </section>
+          <section id="tab-summarize" class="tab-panel">
+            <div class="panel-actions">
+              <button id="btn-sum-page" class="accent-btn">总结本页</button>
+              <button id="btn-sum-selection" class="ghost-btn">总结选区</button>
+              <button id="btn-sum-doc" class="ghost-btn">总结全文</button>
+            </div>
+            <div id="summarize-list" class="card-list"></div>
+          </section>
+          <section id="tab-chat" class="tab-panel">
+            <div id="chat-messages" class="chat-messages">
+              <div class="chat-hint">基于文档内容提问。上下文范围：
+                <select id="chat-scope">
+                  <option value="page">当前页</option>
+                  <option value="selection">选区</option>
+                  <option value="doc">全文（前 12 页）</option>
+                </select>
+              </div>
+            </div>
+            <div class="chat-input-row">
+              <textarea id="chat-input" rows="2" placeholder="针对文档提问…（Enter 发送，Shift+Enter 换行）"></textarea>
+              <div class="chat-buttons">
+                <button id="btn-chat-send" class="accent-btn">发送</button>
+                <button id="btn-chat-stop" class="ghost-btn hidden">停止</button>
+              </div>
+            </div>
+          </section>
+          <section id="tab-settings" class="tab-panel">
+            <div class="settings-form">
+              <label>服务商预设
+                <select id="preset-select"></select>
+              </label>
+              <label>Base URL
+                <input id="base-url" type="text" spellcheck="false" placeholder="https://api.example.com/v1" />
+              </label>
+              <label>API Key
+                <input id="api-key" type="password" spellcheck="false" placeholder="sk-…" autocomplete="off" />
+              </label>
+              <label>模型
+                <div class="model-row">
+                  <input id="model-input" type="text" list="model-list" spellcheck="false" />
+                  <datalist id="model-list"></datalist>
+                  <button id="btn-fetch-models" class="ghost-btn">拉取</button>
+                </div>
+              </label>
+              <label>译入语言
+                <select id="target-lang-settings"></select>
+              </label>
+              <div class="settings-buttons">
+                <button id="btn-save-settings" class="accent-btn">保存设置</button>
+                <button id="btn-test" class="ghost-btn">测试连接</button>
+              </div>
+              <div id="settings-status" class="settings-status"></div>
+              <p class="settings-note">API Key 仅保存在本机用户配置目录（settings.json），请求由本机直接发往你选择的服务商，不经过任何中间服务器。</p>
+            </div>
+          </section>
+        </aside>
+      </div>
+      <button id="selection-action" class="hidden">翻译</button>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
