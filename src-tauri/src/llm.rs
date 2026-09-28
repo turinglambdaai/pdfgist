@@ -39,13 +39,20 @@ fn http_client() -> Result<reqwest::Client, String> {
         .map_err(|e| e.to_string())
 }
 
-// Accepts bare hosts, /v1 suffixed URLs and even full chat-completions URLs.
+// Accepts bare hosts, versioned bases (/v1, /v3, /v4, ...) and even full
+// chat-completions URLs. A URL already ending in a version segment is kept
+// as-is; /v1 is only appended when no version segment exists at all.
 fn normalize_base_url(input: &str) -> String {
     let mut base = input.trim().trim_end_matches('/').to_string();
     if let Some(stripped) = base.strip_suffix("/chat/completions") {
         base = stripped.trim_end_matches('/').to_string();
     }
-    if !base.ends_with("/v1") {
+    let last = base.rsplit('/').next().unwrap_or("");
+    let has_version = last
+        .strip_prefix(['v', 'V'])
+        .map(|rest| !rest.is_empty() && rest.bytes().all(|b| b.is_ascii_digit()))
+        .unwrap_or(false);
+    if !has_version {
         base.push_str("/v1");
     }
     base
@@ -110,6 +117,51 @@ pub fn llm_stop(state: State<'_, CancelState>, id: String) {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::normalize_base_url;
+
+    #[test]
+    fn keeps_provider_version_segments() {
+        assert_eq!(
+            normalize_base_url("https://api.deepseek.com/v1"),
+            "https://api.deepseek.com/v1"
+        );
+        assert_eq!(
+            normalize_base_url("https://open.bigmodel.cn/api/coding/paas/v4"),
+            "https://open.bigmodel.cn/api/coding/paas/v4"
+        );
+        assert_eq!(
+            normalize_base_url("https://open.bigmodel.cn/api/paas/v4/"),
+            "https://open.bigmodel.cn/api/paas/v4"
+        );
+        assert_eq!(
+            normalize_base_url("https://ark.cn-beijing.volces.com/api/v3"),
+            "https://ark.cn-beijing.volces.com/api/v3"
+        );
+    }
+
+    #[test]
+    fn appends_v1_when_missing() {
+        assert_eq!(
+            normalize_base_url("https://api.example.com"),
+            "https://api.example.com/v1"
+        );
+        assert_eq!(
+            normalize_base_url("https://api.example.com/gateway/"),
+            "https://api.example.com/gateway/v1"
+        );
+    }
+
+    #[test]
+    fn strips_full_chat_completions_path() {
+        assert_eq!(
+            normalize_base_url("https://api.example.com/v1/chat/completions"),
+            "https://api.example.com/v1"
+        );
+    }
+}
+
 #[tauri::command]
 pub async fn list_models(base_url: String, api_key: String) -> Result<Vec<String>, String> {
     let client = http_client()?;
@@ -159,7 +211,10 @@ async fn run_chat(
     let status = response.status();
     if !status.is_success() {
         let text = response.text().await.unwrap_or_default();
-        return Err(format!("HTTP {status}：{}", truncate_chars(text.trim(), 400)));
+        return Err(format!(
+            "HTTP {status}：{}（POST {url}）",
+            truncate_chars(text.trim(), 400)
+        ));
     }
 
     let mut stream = response.bytes_stream();

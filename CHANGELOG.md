@@ -5,6 +5,13 @@ All notable changes to PDFGist are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.3.1] — 2026-09-28
+
+### Fixed
+
+- GLM and Doubao presets failed with HTTP 404: the backend appended `/v1` to base URLs that already carried a provider version segment (`…/paas/v4`, `…/api/v3`), producing invalid paths like `…/v4/v1/chat/completions`. Version segments are now detected and preserved; `/v1` is only added when the URL has none. Regression-tested with unit tests, and CI now runs `cargo test`.
+- HTTP error messages now include the request URL, so misconfigured base URLs are immediately visible.
+
 ## [0.3.0] — 2026-09-28
 
 Bilingual reading.
@@ -47,7 +54,8 @@ First release.
 - Cancellable LLM streams (per-request cancellation tokens in the Rust backend)
 - CJK-ready text extraction (PDF.js cmaps and standard fonts bundled)
 
-[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.3.1
 [0.3.0]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.3.0
 [0.2.0]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.2.0
 [0.2.0]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.2.0
