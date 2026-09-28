@@ -44,10 +44,26 @@ export function switchTab(id: string): void {
 
 interface Card {
   body: HTMLElement;
+  metaEl: HTMLElement;
   stopBtn: HTMLButtonElement;
 }
 
-function makeCard(list: HTMLElement, title: string, meta: string): Card {
+async function copyToClipboard(text: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const area = document.createElement("textarea");
+    area.value = text;
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    document.body.append(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+  }
+}
+
+function makeCard(list: HTMLElement, title: string, meta: string, getCopyText?: () => string): Card {
   const card = document.createElement("div");
   card.className = "card";
   const header = document.createElement("div");
@@ -63,17 +79,32 @@ function makeCard(list: HTMLElement, title: string, meta: string): Card {
   const stopBtn = document.createElement("button");
   stopBtn.className = "card-btn";
   stopBtn.textContent = "停止";
+  const copyBtn = document.createElement("button");
+  copyBtn.className = "card-btn";
+  copyBtn.textContent = "复制";
+  copyBtn.addEventListener("click", () => {
+    const text = getCopyText?.() ?? "";
+    if (!text.trim()) return;
+    void copyToClipboard(text).then(() => {
+      copyBtn.textContent = "已复制";
+      copyBtn.classList.add("done");
+      setTimeout(() => {
+        copyBtn.textContent = "复制";
+        copyBtn.classList.remove("done");
+      }, 1200);
+    });
+  });
   const closeBtn = document.createElement("button");
   closeBtn.className = "card-btn";
   closeBtn.textContent = "×";
-  actions.append(stopBtn, closeBtn);
+  actions.append(stopBtn, copyBtn, closeBtn);
   header.append(titleEl, metaEl, actions);
   const body = document.createElement("div");
   body.className = "card-body md";
   card.append(header, body);
   list.prepend(card);
   closeBtn.addEventListener("click", () => card.remove());
-  return { body, stopBtn };
+  return { body, metaEl, stopBtn };
 }
 
 function addNotice(list: HTMLElement, message: string): void {
@@ -103,14 +134,14 @@ function streamInto(
 ): void {
   const provider = deps.getProvider();
   if (!provider) return;
-  const { body, stopBtn } = makeCard(list, title, meta);
+  const entry: StreamEntry = { raw: "" };
+  const { body, stopBtn } = makeCard(list, title, meta, () => entry.raw);
   if (sourceText) {
     const source = document.createElement("div");
     source.className = "card-source";
     source.textContent = sourceText;
     body.before(source);
   }
-  const entry: StreamEntry = { raw: "" };
   let scheduled = false;
   const flush = () => {
     scheduled = false;
@@ -178,6 +209,141 @@ async function translatePage(): Promise<void> {
     translatePrompt(`以下是 PDF 第 ${src.page} 页提取的文本：\n\n${text}`, lang),
     text
   );
+}
+
+// Group extracted page lines into paragraph-sized chunks so each can be
+// translated as an independent streaming request (aligned pairs).
+function splitParagraphs(text: string, targetChars = 400): string[] {
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const paragraphs: string[] = [];
+  let current = "";
+  for (const line of lines) {
+    const joiner = /[A-Za-z0-9.,;:!?)]$/.test(current) && /^[A-Za-z0-9(`"']/.test(line) ? " " : "";
+    current += joiner + line;
+    if (current.length >= targetChars) {
+      paragraphs.push(current);
+      current = "";
+    }
+  }
+  if (current) paragraphs.push(current);
+  return paragraphs;
+}
+
+const BILINGUAL_MAX_PARAS = 12;
+const BILINGUAL_CONCURRENCY = 2;
+
+async function translatePageBilingual(): Promise<void> {
+  const src = await deps.text.page();
+  if (!src) {
+    addNotice(translateList(), "先打开一个 PDF");
+    return;
+  }
+  const provider = deps.getProvider();
+  if (!provider) return;
+  const paragraphs = splitParagraphs(src.text).slice(0, BILINGUAL_MAX_PARAS);
+  if (paragraphs.length === 0) {
+    addNotice(translateList(), `第 ${src.page} 页没有可提取的文本（可能是扫描件）`);
+    return;
+  }
+  const lang = deps.getTargetLang();
+  const handles: Array<{ cancel: () => void }> = [];
+
+  const { body, metaEl, stopBtn } = makeCard(
+    translateList(),
+    `第 ${src.page} 页对照`,
+    `0/${paragraphs.length} 段`,
+    () => slots.map((s) => s.raw).join("\n\n")
+  );
+  if (paragraphs.length >= BILINGUAL_MAX_PARAS) {
+    metaEl.textContent = `0/${paragraphs.length} 段（取前 ${BILINGUAL_MAX_PARAS} 段）`;
+  }
+
+  // slots are created upfront in reading order; translations fill them in place
+  interface Slot {
+    textDiv: HTMLElement;
+    raw: string;
+    scheduled: boolean;
+    flush: () => void;
+  }
+  const slots: Slot[] = [];
+  for (const paragraph of paragraphs) {
+    const pair = document.createElement("div");
+    pair.className = "pair";
+    const srcDiv = document.createElement("div");
+    srcDiv.className = "pair-src";
+    const srcTag = document.createElement("span");
+    srcTag.className = "pair-tag";
+    srcTag.textContent = "原文";
+    srcDiv.append(srcTag, document.createTextNode(paragraph));
+    const dstTag = document.createElement("span");
+    dstTag.className = "pair-tag";
+    dstTag.textContent = `译文 → ${lang}`;
+    const textDiv = document.createElement("div");
+    textDiv.className = "md";
+    pair.append(srcDiv, dstTag, textDiv);
+    body.append(pair);
+    const slot: Slot = {
+      textDiv,
+      raw: "",
+      scheduled: false,
+      flush: () => {
+        slot.scheduled = false;
+        textDiv.innerHTML = renderMarkdown(slot.raw);
+      },
+    };
+    slots.push(slot);
+  }
+
+  let completed = 0;
+  const updateMeta = (): void => {
+    metaEl.textContent = `${completed}/${paragraphs.length} 段`;
+  };
+
+  const startOne = (index: number): Promise<void> => {
+    const slot = slots[index];
+    slot.textDiv.classList.add("streaming");
+    const handle = chatStream(provider, translatePrompt(paragraphs[index], lang), (delta) => {
+      slot.raw += delta;
+      if (!slot.scheduled) {
+        slot.scheduled = true;
+        requestAnimationFrame(slot.flush);
+      }
+    });
+    handles.push(handle);
+    return handle.done
+      .catch((err: unknown) => {
+        slot.raw = "";
+        slot.textDiv.innerHTML = "";
+        const box = document.createElement("div");
+        box.className = "card-error";
+        box.textContent = errorMessage(err);
+        slot.textDiv.append(box);
+      })
+      .finally(() => {
+        slot.textDiv.classList.remove("streaming");
+        if (slot.raw.trim()) slot.flush();
+        completed += 1;
+        updateMeta();
+      });
+  };
+
+  stopBtn.addEventListener("click", () => {
+    for (const handle of handles) handle.cancel();
+  });
+
+  // workers pull from a shared cursor; order is preserved by the slots
+  let cursor = 0;
+  const worker = async (): Promise<void> => {
+    while (cursor < paragraphs.length) {
+      const index = cursor++;
+      await startOne(index);
+    }
+  };
+  await Promise.all(Array.from({ length: BILINGUAL_CONCURRENCY }, () => worker()));
+  stopBtn.remove();
 }
 
 async function summarizePage(): Promise<void> {
@@ -349,6 +515,7 @@ export function initSidebar(d: SidebarDeps): void {
     btn.addEventListener("click", () => switchTab(btn.dataset.tab ?? "translate"));
   }
   el("btn-translate-page").addEventListener("click", () => void translatePage());
+  el("btn-translate-bilingual").addEventListener("click", () => void translatePageBilingual());
   el("btn-sum-page").addEventListener("click", () => void summarizePage());
   el("btn-sum-selection").addEventListener("click", () => summarizeSelection());
   el("btn-sum-doc").addEventListener("click", () => void summarizeDoc());

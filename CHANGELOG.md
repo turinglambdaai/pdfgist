@@ -5,6 +5,16 @@ All notable changes to PDFGist are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-09-28
+
+Bilingual reading.
+
+### Added
+
+- Paragraph-aligned page translation (段落对照): the current page is split into paragraph chunks, translated with two concurrent streaming requests, and shown as original/translation pairs in reading order; stop cancels the remaining paragraphs
+- Copy button on AI result cards (translations, summaries and bilingual pairs)
+- Smarter line joining when regrouping extracted page text (CJK-safe)
+
 ## [0.2.0] — 2026-09-28
 
 Interface overhaul and reading features.
@@ -37,6 +47,8 @@ First release.
 - Cancellable LLM streams (per-request cancellation tokens in the Rust backend)
 - CJK-ready text extraction (PDF.js cmaps and standard fonts bundled)
 
-[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.3.0
+[0.2.0]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.2.0
 [0.2.0]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.2.0
 [0.1.0]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.1.0

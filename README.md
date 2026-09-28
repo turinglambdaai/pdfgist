@@ -12,6 +12,7 @@ Most AI PDF apps lock you into their subscription. PDFGist takes the opposite ap
 
 - **PDF reading** — continuous scroll, zoom / fit-width, document outline, keyboard navigation
 - **Selection translation** — select any text, one click to translate, streaming result
+- **Bilingual page reading** — paragraph-aligned translation of the current page: original and translation in pairs, streamed in parallel
 - **Page & document summaries** — one-click structured summaries of the current page, a selection, or the whole document
 - **Chat with the document** — ask questions grounded in the current page, your selection, or the first pages of the document
 - **Bring your own model** — presets for Zhipu GLM (incl. the GLM Coding plan endpoint), DeepSeek, Moonshot Kimi, Alibaba Qwen, Doubao (Volcano Ark), SiliconFlow and Ollama, or any OpenAI-compatible base URL; model lists fetched on demand
@@ -36,8 +37,8 @@ npm run icon
 
 ## Roadmap
 
-- [ ] In-document search
-- [ ] Bilingual side-by-side view
+- [ ] Two-page / book view
+- [ ] Multiple document tabs
 - [ ] Batch translation export (Markdown)
 - [ ] OCR for scanned PDFs
 - [ ] EPUB support
