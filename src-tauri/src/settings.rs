@@ -3,7 +3,7 @@ use std::fs;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(default)]
 pub struct ProviderConfig {
     pub name: String,
@@ -12,11 +12,31 @@ pub struct ProviderConfig {
     pub model: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Default)]
+impl Default for ProviderConfig {
+    fn default() -> Self {
+        Self {
+            name: "deepseek".into(),
+            base_url: "https://api.deepseek.com/v1".into(),
+            api_key: String::new(),
+            model: "deepseek-chat".into(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(default)]
 pub struct Settings {
     pub provider: ProviderConfig,
     pub target_language: String,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            provider: ProviderConfig::default(),
+            target_language: "中文".into(),
+        }
+    }
 }
 
 fn config_path(app: &AppHandle) -> Result<std::path::PathBuf, String> {

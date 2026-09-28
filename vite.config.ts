@@ -18,7 +18,15 @@ function copyPdfjsAssets(): Plugin {
 
 export default defineConfig({
   clearScreen: false,
-  server: { port: 5173, strictPort: true },
+  server: {
+    port: 5173,
+    strictPort: true,
+    watch: {
+      // cargo writes into src-tauri/target while vite watches the project
+      // root; watching those files crashes the dev server (EBUSY on Windows)
+      ignored: ["**/src-tauri/target/**", "**/dist/**"],
+    },
+  },
   build: { target: "es2022" },
   plugins: [copyPdfjsAssets()],
 });

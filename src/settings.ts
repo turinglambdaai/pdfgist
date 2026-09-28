@@ -80,10 +80,14 @@ export async function initSettings(onNeedConfig: () => void): Promise<void> {
   const fallback = defaultSettings();
   try {
     const stored = await invoke<Partial<Settings>>("get_settings");
-    current = {
-      provider: { ...fallback.provider, ...(stored.provider ?? {}) },
-      target_language: stored.target_language ?? fallback.target_language,
-    };
+    // an empty provider means no real settings exist yet (fresh install or
+    // hand-cleared file) — don't let empty strings override the defaults
+    current = !stored.provider?.name
+      ? fallback
+      : {
+          provider: { ...fallback.provider, ...stored.provider },
+          target_language: stored.target_language || fallback.target_language,
+        };
   } catch {
     current = fallback;
   }
