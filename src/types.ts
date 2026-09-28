@@ -79,10 +79,22 @@ export const PRESETS: ProviderPreset[] = [
     models: ["doubao-seed-2-1-pro", "doubao-seed-2-0-lite"],
   },
   {
+    id: "doubao-coding",
+    name: "豆包 Coding 套餐（火山方舟）",
+    base_url: "https://ark.cn-beijing.volces.com/api/coding/v3",
+    models: ["doubao-seed-2-1-pro", "doubao-seed-code"],
+  },
+  {
     id: "moonshot",
     name: "Moonshot Kimi",
     base_url: "https://api.moonshot.cn/v1",
     models: ["kimi-k2-0905-preview", "kimi-latest", "moonshot-v1-8k"],
+  },
+  {
+    id: "kimi-coding",
+    name: "Kimi Code 套餐（Moonshot）",
+    base_url: "https://api.kimi.com/coding/v1",
+    models: ["kimi-k3", "kimi-k2.5", "kimi-k2-turbo-preview"],
   },
   {
     id: "siliconflow",

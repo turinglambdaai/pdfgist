@@ -1,6 +1,6 @@
 import * as pdfjs from "pdfjs-dist";
-import type { PDFDocumentProxy } from "pdfjs-dist";
-import type { TextItem, TextMarkedContent } from "pdfjs-dist/types/src/display/api";
+import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
+import type { TextContent, TextItem, TextMarkedContent } from "pdfjs-dist/types/src/display/api";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
@@ -11,17 +11,33 @@ export interface ViewerEvents {
   onZoom?: (scale: number) => void;
 }
 
+export interface SearchHit {
+  page: number; // 1-based
+  itemIndex: number;
+  charStart: number;
+  length: number;
+}
+
 interface PageView {
   index: number;
   div: HTMLDivElement;
   canvas: HTMLCanvasElement;
   textLayerDiv: HTMLDivElement;
+  highlightLayer: HTMLDivElement;
   width: number; // css px at scale 1
   height: number;
   rendered: boolean;
   rendering: boolean;
   renderTask: pdfjs.RenderTask | null;
   text: string;
+  textContent: TextContent | null;
+}
+
+interface ThumbView {
+  page: number;
+  div: HTMLDivElement;
+  canvas: HTMLCanvasElement;
+  rendered: boolean;
 }
 
 function isCancel(err: unknown): boolean {
@@ -41,6 +57,7 @@ function textFromItems(items: readonly (TextItem | TextMarkedContent)[]): string
 
 const RENDERED_CAP = 30; // keep at most this many decoded pages in memory
 const MARGIN = 600; // render pages within this many px of the viewport
+const THUMB_WIDTH = 116;
 
 export class PdfViewer {
   private container: HTMLElement;
@@ -48,11 +65,16 @@ export class PdfViewer {
   private doc: PDFDocumentProxy | null = null;
   private loadingTask: pdfjs.PDFDocumentLoadingTask | null = null;
   private pages: PageView[] = [];
+  private thumbs: ThumbView[] = [];
+  private thumbObserver: IntersectionObserver | null = null;
   private scale = 1;
   private fitWidth = true;
   private currentPage = 1;
   private renderScheduled = false;
   private resizeTimer: ReturnType<typeof setTimeout> | null = null;
+  private hits: SearchHit[] = [];
+  private activeHit = -1;
+  private searchToken = 0;
   events: ViewerEvents = {};
 
   constructor(container: HTMLElement, viewer: HTMLElement) {
@@ -113,19 +135,23 @@ export class PdfViewer {
       const canvas = document.createElement("canvas");
       const textLayerDiv = document.createElement("div");
       textLayerDiv.className = "textLayer";
-      div.append(canvas, textLayerDiv);
+      const highlightLayer = document.createElement("div");
+      highlightLayer.className = "highlight-layer";
+      div.append(canvas, textLayerDiv, highlightLayer);
       this.viewer.append(div);
       return {
         index: i,
         div,
         canvas,
         textLayerDiv,
+        highlightLayer,
         width: vp.width,
         height: vp.height,
         rendered: false,
         rendering: false,
         renderTask: null,
         text: "",
+        textContent: null,
       } satisfies PageView;
     });
 
@@ -135,6 +161,10 @@ export class PdfViewer {
   }
 
   close(): void {
+    this.searchToken++;
+    this.hits = [];
+    this.activeHit = -1;
+    this.teardownThumbs();
     if (this.loadingTask) {
       void this.loadingTask.destroy();
       this.loadingTask = null;
@@ -168,6 +198,7 @@ export class PdfViewer {
     }
     this.events.onZoom?.(this.scale);
     this.scheduleRender();
+    this.redrawHighlights();
   }
 
   zoomIn(): void {
@@ -226,7 +257,10 @@ export class PdfViewer {
   async getPageText(n: number): Promise<string> {
     const pv = this.pages[n - 1];
     if (!pv) return "";
-    if (!pv.rendered && this.doc) await this.ensureRendered(pv);
+    if (!pv.rendered && this.doc) {
+      await this.ensureTextItems(pv);
+      if (!pv.rendered) await this.ensureRendered(pv);
+    }
     return pv.text;
   }
 
@@ -247,6 +281,225 @@ export class PdfViewer {
     }
     return { pages: n, text: parts.join("\n\n") };
   }
+
+  /* ---------- search ---------- */
+
+  // Progressive whole-document search, starting from the current page.
+  // Reports the running hit count; draws overlays on rendered pages.
+  async runSearch(query: string, onCount: (found: number, done: boolean) => void): Promise<void> {
+    const token = ++this.searchToken;
+    this.clearSearch();
+    const needle = query.trim().toLowerCase();
+    if (!needle || !this.doc) {
+      onCount(0, true);
+      return;
+    }
+    const total = this.doc.numPages;
+    const order: number[] = [];
+    for (let offset = 0; offset < total; offset++) {
+      order.push((((this.currentPage - 1 + offset) % total) + total) % total);
+    }
+    let first = true;
+    for (const pageIndex of order) {
+      if (this.searchToken !== token) return; // superseded
+      const pv = this.pages[pageIndex];
+      if (!pv) continue;
+      const items = (await this.ensureTextItems(pv)).items;
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (!("str" in item)) continue;
+        const haystack = item.str.toLowerCase();
+        let start = haystack.indexOf(needle);
+        while (start !== -1) {
+          this.hits.push({ page: pageIndex + 1, itemIndex: i, charStart: start, length: needle.length });
+          start = haystack.indexOf(needle, start + needle.length);
+        }
+      }
+      if (pv.rendered && this.hasPageHits(pv.index + 1)) this.drawHighlights(pv);
+      onCount(this.hits.length, false);
+      if (first && this.hits.length > 0) {
+        first = false;
+        this.setActiveHit(0);
+      }
+    }
+    if (this.searchToken !== token) return;
+    onCount(this.hits.length, true);
+  }
+
+  hasPageHits(page: number): boolean {
+    return this.hits.some((h) => h.page === page);
+  }
+
+  getHitCount(): number {
+    return this.hits.length;
+  }
+
+  getActiveHitIndex(): number {
+    return this.activeHit;
+  }
+
+  async nextHit(): Promise<void> {
+    if (this.hits.length === 0) return;
+    await this.setActiveHit((this.activeHit + 1) % this.hits.length);
+  }
+
+  async prevHit(): Promise<void> {
+    if (this.hits.length === 0) return;
+    await this.setActiveHit((this.activeHit - 1 + this.hits.length) % this.hits.length);
+  }
+
+  async setActiveHit(index: number): Promise<void> {
+    this.activeHit = index;
+    const hit = this.hits[index];
+    if (!hit) return;
+    const pv = this.pages[hit.page - 1];
+    if (!pv) return;
+    if (!pv.rendered) {
+      this.scrollToPage(hit.page);
+      await this.ensureRendered(pv);
+    }
+    const rect = await this.hitRect(pv, hit);
+    if (rect) {
+      const target = pv.div.offsetTop + rect.top - this.container.clientHeight / 3;
+      this.container.scrollTop = Math.max(0, target);
+    }
+    await this.drawHighlights(pv);
+  }
+
+  clearSearch(): void {
+    this.hits = [];
+    this.activeHit = -1;
+    for (const pv of this.pages) this.clearHighlights(pv);
+  }
+
+  private clearHighlights(pv: PageView): void {
+    pv.highlightLayer.innerHTML = "";
+  }
+
+  redrawHighlights(): void {
+    for (const pv of this.pages) {
+      if (pv.rendered && this.hasPageHits(pv.index + 1)) void this.drawHighlights(pv);
+    }
+  }
+
+  // Screenspace rect of a hit at the current scale. Sub-item position is
+  // estimated with uniform character width — good enough for highlights.
+  private async hitRect(pv: PageView, hit: SearchHit): Promise<{ left: number; top: number; width: number; height: number } | null> {
+    const item = pv.textContent?.items[hit.itemIndex];
+    if (!item || !("str" in item) || !this.doc) return null;
+    const page = await this.doc.getPage(pv.index + 1);
+    const viewport = page.getViewport({ scale: this.scale });
+    const tx = pdfjs.Util.transform(viewport.transform, item.transform);
+    const fontHeight = Math.hypot(tx[2], tx[3]);
+    const charW = (item.width * viewport.scale) / Math.max(item.str.length, 1);
+    return {
+      left: tx[4] + charW * hit.charStart,
+      top: tx[5] - fontHeight,
+      width: charW * hit.length,
+      height: fontHeight * 1.15,
+    };
+  }
+
+  private async drawHighlights(pv: PageView): Promise<void> {
+    this.clearHighlights(pv);
+    for (let i = 0; i < this.hits.length; i++) {
+      const hit = this.hits[i];
+      if (hit.page !== pv.index + 1) continue;
+      const rect = await this.hitRect(pv, hit);
+      if (!rect) continue;
+      const div = document.createElement("div");
+      div.className = i === this.activeHit ? "hit hit-active" : "hit";
+      div.style.left = `${rect.left}px`;
+      div.style.top = `${rect.top}px`;
+      div.style.width = `${rect.width}px`;
+      div.style.height = `${rect.height}px`;
+      pv.highlightLayer.append(div);
+    }
+  }
+
+  private async ensureTextItems(pv: PageView): Promise<TextContent> {
+    if (pv.textContent) return pv.textContent;
+    if (!this.doc) return { items: [], styles: {}, lang: null };
+    const page = await this.doc.getPage(pv.index + 1);
+    const content = await page.getTextContent();
+    pv.textContent = content;
+    pv.text = textFromItems(content.items);
+    return content;
+  }
+
+  /* ---------- thumbnails ---------- */
+
+  buildThumbnails(container: HTMLElement): void {
+    this.teardownThumbs();
+    if (!this.doc) return;
+    container.innerHTML = "";
+    this.thumbObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const view = this.thumbs.find((t) => t.div === entry.target);
+          if (view && !view.rendered) void this.renderThumb(view);
+        }
+      },
+      { root: container, rootMargin: "200px" }
+    );
+    for (const pv of this.pages) {
+      const div = document.createElement("div");
+      div.className = "thumb";
+      const canvas = document.createElement("canvas");
+      canvas.width = THUMB_WIDTH;
+      canvas.height = Math.max(1, Math.floor((THUMB_WIDTH * pv.height) / pv.width));
+      const label = document.createElement("span");
+      label.className = "thumb-label";
+      label.textContent = String(pv.index + 1);
+      div.append(canvas, label);
+      div.addEventListener("click", () => this.scrollToPage(pv.index + 1));
+      container.append(div);
+      const view: ThumbView = { page: pv.index + 1, div, canvas, rendered: false };
+      this.thumbs.push(view);
+      this.thumbObserver.observe(div);
+    }
+    this.updateActiveThumb();
+  }
+
+  private async renderThumb(view: ThumbView): Promise<void> {
+    if (!this.doc) return;
+    view.rendered = true; // mark early so the observer doesn't re-fire
+    try {
+      const page = await this.doc.getPage(view.page);
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const viewport = page.getViewport({ scale: (THUMB_WIDTH / view.canvas.width) * dpr });
+      const ctx = view.canvas.getContext("2d");
+      if (!ctx) return;
+      view.canvas.width = Math.floor(viewport.width);
+      view.canvas.height = Math.floor(viewport.height);
+      // the backing store is dpr-scaled; pin the CSS size to the panel width
+      view.canvas.style.width = `${THUMB_WIDTH}px`;
+      const transform = dpr === 1 ? undefined : ([dpr, 0, 0, dpr, 0, 0] as [number, number, number, number, number, number]);
+      await page.render({ canvasContext: ctx, viewport, transform }).promise;
+    } catch (err) {
+      if (!isCancel(err)) console.error("thumb render failed", err);
+    }
+  }
+
+  updateActiveThumb(): void {
+    for (const view of this.thumbs) {
+      view.div.classList.toggle("active", view.page === this.currentPage);
+    }
+  }
+
+  scrollToThumb(): void {
+    const view = this.thumbs[this.currentPage - 1];
+    view?.div.scrollIntoView({ block: "nearest" });
+  }
+
+  private teardownThumbs(): void {
+    this.thumbObserver?.disconnect();
+    this.thumbObserver = null;
+    this.thumbs = [];
+  }
+
+  /* ---------- rendering ---------- */
 
   private scheduleRender(): void {
     if (this.renderScheduled) return;
@@ -313,9 +566,9 @@ export class PdfViewer {
         pv.renderTask = null;
       }
 
-      const textContent = await page.getTextContent();
-      pv.text = textFromItems(textContent.items);
-      await this.renderTextLayer(pv, textContent, viewport);
+      await this.ensureTextItems(pv);
+      await this.renderTextLayer(pv, viewport);
+      if (this.hasPageHits(pv.index + 1)) await this.drawHighlights(pv);
       pv.rendered = true;
     } catch (err) {
       if (!isCancel(err)) console.error("page load failed", err);
@@ -326,13 +579,13 @@ export class PdfViewer {
 
   private async renderTextLayer(
     pv: PageView,
-    textContent: Awaited<ReturnType<pdfjs.PDFPageProxy["getTextContent"]>>,
     viewport: pdfjs.PageViewport
   ): Promise<void> {
     pv.textLayerDiv.innerHTML = "";
+    if (!pv.textContent) return;
     pv.div.style.setProperty("--scale-factor", String(viewport.scale));
     const layer = new pdfjs.TextLayer({
-      textContentSource: textContent,
+      textContentSource: pv.textContent,
       container: pv.textLayerDiv,
       viewport,
     });
@@ -341,10 +594,10 @@ export class PdfViewer {
 
   private unrender(pv: PageView): void {
     pv.rendered = false;
-    pv.text = "";
     pv.canvas.width = 0;
     pv.canvas.height = 0;
     pv.textLayerDiv.innerHTML = "";
+    this.clearHighlights(pv);
   }
 
   private enforceMemoryCap(top: number, bottom: number): void {
@@ -359,3 +612,5 @@ export class PdfViewer {
     }
   }
 }
+
+export type { PDFPageProxy };

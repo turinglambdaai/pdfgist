@@ -123,6 +123,7 @@ function streamInto(
       requestAnimationFrame(flush);
     }
   });
+  body.classList.add("streaming");
   stopBtn.addEventListener("click", () => handle.cancel());
   handle.done
     .catch((err: unknown) => {
@@ -133,6 +134,7 @@ function streamInto(
       body.append(box);
     })
     .finally(() => {
+      body.classList.remove("streaming");
       stopBtn.remove();
       if (!entry.raw.trim()) {
         body.innerHTML = `<div class="card-empty">（无返回内容）</div>`;
@@ -304,6 +306,7 @@ async function sendChat(): Promise<void> {
 
   const history = [system, ...chatHistory.slice(-12), userMsg];
   chatBusy = true;
+  bubble.classList.add("streaming");
   el("btn-chat-send").classList.add("hidden");
   el("btn-chat-stop").classList.remove("hidden");
   let assistantText = "";
@@ -327,6 +330,7 @@ async function sendChat(): Promise<void> {
     })
     .finally(() => {
       chatBusy = false;
+      bubble.classList.remove("streaming");
       chatHandle = null;
       el("btn-chat-send").classList.remove("hidden");
       el("btn-chat-stop").classList.add("hidden");
