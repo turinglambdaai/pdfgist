@@ -3,6 +3,7 @@ import { el } from "./dom";
 import { PdfViewer } from "./viewer";
 import { currentSettings, ensureProviderConfigured, initSettings } from "./settings";
 import { initSidebar, switchTab, translateSelection } from "./sidebar";
+import { initUpdater } from "./updater";
 
 const viewerWrap = el("viewer-wrap");
 const viewerEl = el("viewer");
@@ -172,6 +173,7 @@ async function init(): Promise<void> {
   initKeyboard();
   initDragDrop();
   initSelectionAction();
+  initUpdater();
 }
 
 void init();

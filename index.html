@@ -43,6 +43,11 @@
           <div id="drop-overlay" class="hidden">松开以打开 PDF</div>
         </div>
         <aside id="sidebar">
+          <div id="update-banner" class="hidden">
+            <span id="update-banner-text">发现新版本</span>
+            <button id="btn-update-install" class="accent-btn">更新并重启</button>
+            <button id="btn-update-dismiss" class="card-btn" title="忽略">×</button>
+          </div>
           <nav id="sidebar-tabs">
             <button class="tab-btn active" data-tab="translate">翻译</button>
             <button class="tab-btn" data-tab="summarize">总结</button>
@@ -110,6 +115,11 @@
                 <button id="btn-test" class="ghost-btn">测试连接</button>
               </div>
               <div id="settings-status" class="settings-status"></div>
+              <div class="update-row">
+                <span>当前版本 <span id="app-version">–</span></span>
+                <button id="btn-check-update" class="ghost-btn">检查更新</button>
+              </div>
+              <div id="update-status" class="settings-status"></div>
               <p class="settings-note">API Key 仅保存在本机用户配置目录（settings.json），请求由本机直接发往你选择的服务商，不经过任何中间服务器。</p>
             </div>
           </section>

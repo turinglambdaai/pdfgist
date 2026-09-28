@@ -14,7 +14,7 @@ const perPreset = new Map<string, PresetState>();
 let needConfigHint: () => void = () => {};
 
 function defaultSettings(): Settings {
-  const preset = PRESETS[0];
+  const preset = PRESETS.find((p) => p.id === "deepseek") ?? PRESETS[0];
   return {
     provider: {
       name: preset.id,

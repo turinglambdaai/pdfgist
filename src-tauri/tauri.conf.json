@@ -28,6 +28,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "category": "Productivity",
     "shortDescription": "AI PDF reader with BYOK translation and summarization",
     "longDescription": "PDFGist is a local-first PDF reader with built-in AI translation, summarization and chat. It works with any OpenAI-compatible API (OpenAI, DeepSeek, Kimi, SiliconFlow, Ollama, ...). Your API key stays on your machine.",
@@ -39,5 +40,13 @@
       "icons/icon.ico",
       "icons/icon.png"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/turinglambdaai/pdfgist/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVGQzQ0RTlENkJENTZBMkMKUldRc2F0VnJuVTdFWDVHM2JuKzRSYmtnR1J2cDcrSEpka01ra2RHWXBXcWRVOVMrMjVFaFRLK1IK"
+    }
   }
 }

@@ -14,8 +14,9 @@ Most AI PDF apps lock you into their subscription. PDFGist takes the opposite ap
 - **Selection translation** — select any text, one click to translate, streaming result
 - **Page & document summaries** — one-click structured summaries of the current page, a selection, or the whole document
 - **Chat with the document** — ask questions grounded in the current page, your selection, or the first pages of the document
-- **Bring your own model** — presets for DeepSeek, OpenAI, Moonshot Kimi, SiliconFlow and Ollama, or any OpenAI-compatible base URL; model lists fetched on demand
+- **Bring your own model** — presets for Zhipu GLM (incl. the GLM Coding plan endpoint), DeepSeek, Moonshot Kimi, Alibaba Qwen, Doubao (Volcano Ark), SiliconFlow and Ollama, or any OpenAI-compatible base URL; model lists fetched on demand
 - **Local-first** — settings and API keys live in your user config directory; no account, no telemetry
+- **Auto-updates** — signed in-app updates via GitHub Releases, checked at startup and from Settings
 
 ## Building from source
 
