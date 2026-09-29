@@ -86,9 +86,9 @@ function insidePlane(px, py) {
   return inside;
 }
 
-const BG_TOP = [36, 70, 107];
-const BG_BOTTOM = [20, 38, 61];
-const PLANE_COLOR = [247, 250, 252];
+const BG_TOP = [232, 146, 106]; // #E8926A
+const BG_BOTTOM = [196, 98, 62]; // #C4623E
+const PLANE_COLOR = [255, 255, 255];
 
 const rgba = Buffer.alloc(SIZE * SIZE * 4);
 for (let y = 0; y < SIZE; y++) {
@@ -103,7 +103,8 @@ for (let y = 0; y < SIZE; y++) {
         const py = y + (sy + 0.5) / SS;
         if (!insideRoundedSquare(px, py)) continue;
         covered += 1;
-        const t = py / SIZE;
+        // diagonal gradient matching the in-app empty-state mark
+        const t = (px + py) / (2 * SIZE);
         if (insidePlane(px, py)) {
           r += PLANE_COLOR[0];
           g += PLANE_COLOR[1];

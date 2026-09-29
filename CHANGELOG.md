@@ -5,6 +5,12 @@ All notable changes to PDFGist are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-09-29
+
+### Changed
+
+- Redrew the brand mark: the app icon (window, taskbar, installers, site favicon) now uses the terracotta gradient with the white paper plane, matching the in-app mark and the TuringLambdaAI family style.
+
 ## [0.4.0] — 2026-09-28
 
 Brand refresh.
@@ -66,7 +72,8 @@ First release.
 - Cancellable LLM streams (per-request cancellation tokens in the Rust backend)
 - CJK-ready text extraction (PDF.js cmaps and standard fonts bundled)
 
-[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.4.1
 [0.4.0]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.4.0
 [0.3.1]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.3.1
 [0.3.0]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.3.0
