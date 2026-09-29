@@ -473,7 +473,22 @@ function renderRecents(): void {
     .slice(0, 8);
   box.classList.toggle("hidden", tabs.length > 0 || recents.length === 0);
   list.innerHTML = "";
+  const sideList = el("recent-block-list");
+  sideList.innerHTML = "";
+  el("recent-block").classList.toggle("hidden", recents.length === 0);
   for (const r of recents) {
+    const side = document.createElement("div");
+    side.className = "bookmark-item";
+    const sPage = document.createElement("span");
+    sPage.className = "page-no";
+    sPage.textContent = `${r.page}`;
+    const sTitle = document.createElement("span");
+    sTitle.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+    sTitle.textContent = r.title;
+    side.title = r.path;
+    side.append(sPage, sTitle);
+    side.addEventListener("click", () => void openPath(r.path, r));
+    sideList.append(side);
     const item = document.createElement("div");
     item.className = "recent-item";
     const title = document.createElement("span");
@@ -599,14 +614,6 @@ function applyTheme(): void {
   }
 }
 
-const PAGE_INVERT_KEY = "pdfgist-page-invert";
-
-function applyPageInvert(): void {
-  const on = localStorage.getItem(PAGE_INVERT_KEY) === "1";
-  document.documentElement.classList.toggle("page-invert", on);
-  (el("page-invert") as HTMLInputElement).checked = on;
-}
-
 function initTheme(): void {
   applyTheme();
   const select = el("theme-mode") as HTMLSelectElement;
@@ -622,11 +629,6 @@ function initTheme(): void {
   select.addEventListener("change", () => {
     localStorage.setItem(THEME_KEY, select.value);
     applyTheme();
-  });
-  applyPageInvert();
-  (el("page-invert") as HTMLInputElement).addEventListener("change", (e) => {
-    localStorage.setItem(PAGE_INVERT_KEY, (e.target as HTMLInputElement).checked ? "1" : "0");
-    applyPageInvert();
   });
 }
 

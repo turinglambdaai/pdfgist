@@ -2626,7 +2626,7 @@ dependencies = [
 
 [[package]]
 name = "pdfgist"
-version = "0.7.3"
+version = "0.8.0"
 dependencies = [
  "futures-util",
  "reqwest 0.12.28",

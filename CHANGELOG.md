@@ -5,6 +5,16 @@ All notable changes to PDFGist are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.8.1] — 2026-09-29
+
+### Added
+
+- "最近打开" now lives in the left panel too (below bookmarks), so recent files are reachable while documents are open — not only on the start screen
+
+### Removed
+
+- Dark-mode page inversion (它确实多此一举): dark mode keeps page content untouched, full stop
+
 ## [0.8.0] — 2026-09-29
 
 Adobe-grade reading details.
@@ -159,7 +169,8 @@ First release.
 - Cancellable LLM streams (per-request cancellation tokens in the Rust backend)
 - CJK-ready text extraction (PDF.js cmaps and standard fonts bundled)
 
-[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.8.1
 [0.8.0]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.8.0
 [0.7.3]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.7.3
 [0.7.2]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.7.2

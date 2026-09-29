@@ -95,6 +95,10 @@
               <div class="bookmarks-title">我的书签 <button id="btn-bookmark-add" class="card-btn" title="书签当前页">＋</button></div>
               <div id="bookmarks-list"></div>
             </div>
+            <div class="bookmarks-block" id="recent-block">
+              <div class="bookmarks-title">最近打开</div>
+              <div id="recent-block-list"></div>
+            </div>
           </div>
         </aside>
         <div id="viewer-wrap">
@@ -242,9 +246,6 @@
                     <option value="light">浅色</option>
                     <option value="dark">深色</option>
                   </select>
-                </label>
-                <label class="check-label">深色模式下反转页面颜色（夜间阅读）
-                  <input id="page-invert" type="checkbox" />
                 </label>
                 <label>译入语言
                   <select id="target-lang-settings"></select>
