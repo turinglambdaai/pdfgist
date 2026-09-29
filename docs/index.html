@@ -133,6 +133,15 @@
     .bento-card.span-2 { grid-column: auto; }
     .nav-links a:not(.nav-cta) { display: none; }
   }
+/* Language dropdown (family standard) */
+.lang-dropdown-wrapper { position: relative; }
+.lang-btn { display: flex; align-items: center; gap: 6px; background: none; border: none; cursor: pointer; font-family: inherit; font-size: 14px; color: var(--text-2); padding: 6px 10px; border-radius: 8px; transition: color .2s, background .2s; }
+.lang-btn:hover { color: var(--accent); background: var(--accent-soft); }
+.lang-menu { position: absolute; top: calc(100% + 6px); right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12); padding: 6px; min-width: 132px; margin: 0; list-style: none; opacity: 0; visibility: hidden; transform: translateY(-4px); transition: opacity .18s, visibility .18s, transform .18s; z-index: 10000; }
+.lang-dropdown-wrapper:hover .lang-menu, .lang-dropdown-wrapper:focus-within .lang-menu { opacity: 1; visibility: visible; transform: translateY(0); }
+.lang-menu li { padding: 7px 12px; font-size: 14px; color: inherit; border-radius: 6px; cursor: pointer; transition: background .15s, color .15s; }
+.lang-menu li:hover { background: var(--accent-soft); color: var(--accent); }
+
 </style>
 </head>
 <body>
@@ -143,7 +152,16 @@
       <a href="#features" data-en="Features" data-zh="功能">功能</a>
       <a href="#models" data-en="Models" data-zh="模型">模型</a>
       <a href="https://github.com/turinglambdaai/pdfgist" target="_blank" rel="noopener">GitHub</a>
-      <button class="lang-btn" id="langBtn">English</button>
+      <div class="lang-dropdown-wrapper">
+          <button class="lang-btn" type="button" onclick="void 0" aria-label="Switch language">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+              <span id="current-lang-label">English</span>
+          </button>
+          <ul class="lang-menu">
+              <li onclick="setLanguage('en')">English</li>
+              <li onclick="setLanguage('zh')">简体中文</li>
+          </ul>
+      </div>
       <a class="nav-cta" href="#download" data-en="Download" data-zh="下载">下载</a>
     </div>
   </div>
@@ -282,7 +300,6 @@
 </footer>
 
 <script>
-  var langs = { zh: "English", en: "中文" };
   var lang = localStorage.getItem("pdfgist-lang") || "zh";
   function applyLang(l) {
     lang = l;
@@ -292,11 +309,11 @@
       var v = el.getAttribute(l === "zh" ? "data-zh" : "data-en");
       if (v !== null) el.innerHTML = v;
     });
-    document.getElementById("langBtn").textContent = langs[l];
+    document.getElementById("current-lang-label").textContent = l === "zh" ? "简体中文" : "English";
   }
-  document.getElementById("langBtn").addEventListener("click", function () {
-    applyLang(lang === "zh" ? "en" : "zh");
-  });
+  window.setLanguage = function (target) {
+    if (target === "zh" || target === "en") applyLang(target);
+  };
   applyLang(lang);
 
   var io = new IntersectionObserver(function (entries) {
