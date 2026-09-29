@@ -67,8 +67,9 @@ function insideRoundedSquare(px, py) {
 }
 
 // Material "send" outline, mapped from its 24-unit space into the icon.
-// The shape is left-heavy (wide tail, pointed nose), so the bounding box
-// is shifted right ~4.7% for optical centering.
+// The shape is left-heavy (wide tail, pointed nose): its area centroid sits
+// ~89px left of the canvas center, so the glyph is shifted right by that
+// amount for optical centering.
 const PLANE = [
   [2, 21],
   [23, 12],
@@ -76,7 +77,7 @@ const PLANE = [
   [2, 10],
   [17, 12],
   [2, 14],
-].map(([x, y]) => [284 + ((x - 2) / 21) * 560, 232 + ((y - 3) / 18) * 560]);
+].map(([x, y]) => [320 + ((x - 2) / 21) * 560, 232 + ((y - 3) / 18) * 560]);
 
 function insidePlane(px, py) {
   let inside = false;
