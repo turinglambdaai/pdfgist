@@ -1,18 +1,32 @@
+import { invoke } from "@tauri-apps/api/core";
+import { save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { chatStream } from "./ai";
 import { el } from "./dom";
 import { renderMarkdown } from "./markdown";
-import type { ChatMessage, ProviderConfig } from "./types";
+import type { Annotation, ChatMessage, ProviderConfig } from "./types";
 
 export interface TextSource {
   page: () => Promise<{ page: number; text: string } | null>;
   selection: () => string | null;
   doc: () => Promise<{ pages: number; text: string } | null>;
+  pages: () => number;
+  pageText: (n: number) => Promise<string>;
+}
+
+export interface AnnotationDeps {
+  list: () => Annotation[];
+  remove: (id: string) => void;
+  update: (id: string, patch: Partial<Pick<Annotation, "note" | "color">>) => void;
+  jump: (a: Annotation) => void;
+  translate: (text: string) => void;
+  meta: () => { title: string; path: string | null } | null;
 }
 
 export interface SidebarDeps {
   getProvider: () => ProviderConfig | null;
   getTargetLang: () => string;
   text: TextSource;
+  annotations: AnnotationDeps;
 }
 
 // Accumulates reasoning and answer separately. While streaming, reasoning
@@ -573,6 +587,13 @@ export function initSidebar(d: SidebarDeps): void {
   }
   el("btn-translate-page").addEventListener("click", () => void translatePage());
   el("btn-translate-bilingual").addEventListener("click", () => void translatePageBilingual());
+  el("btn-export-bilingual").addEventListener("click", () => startBilingualExport());
+  el("btn-export-annotations").addEventListener("click", () => void exportAnnotationsMarkdown());
+  el("btn-copy-annotations").addEventListener("click", () => {
+    const md = buildAnnotationsMarkdown(deps.annotations.list(), deps.annotations.meta());
+    void copyToClipboard(md).then(() => setNotesStatus("已复制到剪贴板"));
+  });
+  renderNotes();
   el("btn-sum-page").addEventListener("click", () => void summarizePage());
   el("btn-sum-selection").addEventListener("click", () => summarizeSelection());
   el("btn-sum-doc").addEventListener("click", () => void summarizeDoc());
@@ -585,4 +606,287 @@ export function initSidebar(d: SidebarDeps): void {
       void sendChat();
     }
   });
+}
+
+/* ---------- notes (annotations) tab ---------- */
+
+function setNotesStatus(text: string, isError = false): void {
+  const status = el("notes-status");
+  status.textContent = text;
+  status.classList.toggle("error", isError);
+}
+
+export function refreshAnnotations(): void {
+  renderNotes();
+}
+
+function renderNotes(): void {
+  const list = el("notes-list");
+  list.innerHTML = "";
+  const items = deps.annotations.list();
+  if (items.length === 0) {
+    const card = document.createElement("div");
+    card.className = "card";
+    const body = document.createElement("div");
+    body.className = "card-body";
+    const span = document.createElement("span");
+    span.className = "card-empty";
+    span.textContent = "在正文中划选文本即可高亮并写笔记；高亮支持三色，点击高亮可补笔记";
+    body.append(span);
+    card.append(body);
+    list.append(card);
+    return;
+  }
+  const sorted = [...items].sort((a, b) => a.page - b.page || a.created - b.created);
+  for (const a of sorted) {
+    const card = document.createElement("div");
+    card.className = "card";
+    const body = document.createElement("div");
+    body.className = "card-body";
+
+    const row = document.createElement("div");
+    row.className = "note-row";
+    const dot = document.createElement("span");
+    dot.className = `note-dot ${a.color}`;
+    const page = document.createElement("span");
+    page.className = "note-page";
+    page.textContent = `第 ${a.page} 页`;
+    const translateBtn = document.createElement("button");
+    translateBtn.className = "card-btn";
+    translateBtn.textContent = "译";
+    translateBtn.title = "翻译这条批注";
+    translateBtn.addEventListener("click", () => deps.annotations.translate(a.excerpt));
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "card-btn";
+    deleteBtn.textContent = "删";
+    deleteBtn.title = "删除这条批注";
+    deleteBtn.addEventListener("click", () => deps.annotations.remove(a.id));
+    row.append(dot, page, translateBtn, deleteBtn);
+
+    const excerpt = document.createElement("div");
+    excerpt.className = "note-excerpt";
+    excerpt.textContent = a.excerpt;
+    excerpt.addEventListener("click", () => deps.annotations.jump(a));
+
+    card.append(row, excerpt);
+    if (a.note.trim()) {
+      const note = document.createElement("div");
+      note.className = "note-text";
+      note.textContent = a.note;
+      note.addEventListener("click", () => deps.annotations.jump(a));
+      card.append(note);
+    }
+    card.addEventListener("click", (e) => {
+      if ((e.target as HTMLElement).classList.contains("card-btn")) return;
+      deps.annotations.jump(a);
+    });
+    list.append(card);
+  }
+}
+
+function buildAnnotationsMarkdown(
+  items: Annotation[],
+  meta: { title: string; path: string | null } | null
+): string {
+  const sorted = [...items].sort((a, b) => a.page - b.page || a.created - b.created);
+  const lines: string[] = [];
+  lines.push(`# 批注 — ${meta?.title ?? "文档"}`);
+  lines.push("");
+  if (meta?.path) lines.push(`> 来源：${meta.path}`);
+  lines.push(`> 导出时间：${new Date().toLocaleString()} · 共 ${sorted.length} 条`);
+  lines.push("");
+  let lastPage = 0;
+  for (const a of sorted) {
+    if (a.page !== lastPage) {
+      lines.push(`## 第 ${a.page} 页`);
+      lines.push("");
+      lastPage = a.page;
+    }
+    lines.push(`> ${a.excerpt.replace(/\n/g, "\n> ")}`);
+    lines.push("");
+    if (a.note.trim()) {
+      lines.push(a.note.trim());
+      lines.push("");
+    }
+  }
+  return lines.join("\n");
+}
+
+async function exportAnnotationsMarkdown(): Promise<void> {
+  const items = deps.annotations.list();
+  if (items.length === 0) {
+    setNotesStatus("还没有批注", true);
+    return;
+  }
+  const meta = deps.annotations.meta();
+  const md = buildAnnotationsMarkdown(items, meta);
+  try {
+    const path = await saveDialog({
+      defaultPath: `${(meta?.title ?? "批注").replace(/\.pdf$/i, "")}-批注.md`,
+      filters: [{ name: "Markdown", extensions: ["md"] }],
+    });
+    if (typeof path === "string") {
+      await invoke("save_text", { path, content: md });
+      setNotesStatus(`✓ 已导出 ${items.length} 条批注`);
+    } else {
+      await copyToClipboard(md);
+      setNotesStatus("已取消保存，Markdown 已复制到剪贴板");
+    }
+  } catch (e) {
+    setNotesStatus(String(e), true);
+  }
+}
+
+/* ---------- batch bilingual export ---------- */
+
+let exportBusy = false;
+
+function startBilingualExport(): void {
+  if (exportBusy) return;
+  const provider = deps.getProvider();
+  if (!provider) return;
+  const docPages = deps.text.pages();
+  if (docPages === 0) {
+    addNotice(translateList(), "先打开一个 PDF");
+    return;
+  }
+  const btn = el("btn-export-bilingual") as HTMLButtonElement;
+  btn.classList.add("hidden");
+  const row = btn.parentElement!;
+  const input = document.createElement("input");
+  input.type = "number";
+  input.min = "1";
+  input.max = "30";
+  input.value = "3";
+  input.className = "inline-input";
+  input.title = "导出前几页（1-30）";
+  const go = document.createElement("button");
+  go.className = "accent-btn";
+  go.textContent = "翻译并导出";
+  const cancel = document.createElement("button");
+  cancel.className = "ghost-btn";
+  cancel.textContent = "取消";
+  row.insertBefore(input, btn);
+  row.insertBefore(go, btn);
+  row.insertBefore(cancel, btn);
+  input.focus();
+  const cleanup = (): void => {
+    input.remove();
+    go.remove();
+    cancel.remove();
+    btn.classList.remove("hidden");
+  };
+  cancel.addEventListener("click", cleanup);
+  go.addEventListener("click", () => {
+    const n = Math.max(1, Math.min(30, parseInt(input.value, 10) || 3));
+    cleanup();
+    void runBilingualExport(n, provider);
+  });
+}
+
+interface ExportTask {
+  index: number;
+  page: number;
+  paragraph: string;
+  translation: string;
+}
+
+async function runBilingualExport(pages: number, provider: ProviderConfig): Promise<void> {
+  exportBusy = true;
+  const lang = deps.getTargetLang();
+  const n = Math.min(pages, deps.text.pages());
+  const { body, metaEl, stopBtn } = makeCard(translateList(), "导出对照翻译", "准备中…");
+
+  const tasks: ExportTask[] = [];
+  for (let p = 1; p <= n; p++) {
+    const text = (await deps.text.pageText(p)).trim();
+    if (!text) continue;
+    for (const paragraph of splitParagraphs(text)) {
+      tasks.push({ index: 0, page: p, paragraph, translation: "" });
+    }
+  }
+  tasks.forEach((t, i) => (t.index = i));
+  const total = tasks.length;
+  let completed = 0;
+  let stopped = false;
+  const updateProgress = (page: number): void => {
+    metaEl.textContent = `${completed}/${total} 段 · 第 ${page} 页`;
+    body.innerHTML = `<div class="card-empty">正在翻译，完成后可选择保存为 Markdown…</div>`;
+  };
+
+  const handles: Array<{ cancel: () => void }> = [];
+  stopBtn.addEventListener("click", () => {
+    stopped = true;
+    for (const h of handles) h.cancel();
+  });
+
+  const startOne = async (task: ExportTask): Promise<void> => {
+    const handle = chatStream(provider, translatePrompt(task.paragraph, lang), (delta) => {
+      task.translation += delta;
+    });
+    handles.push(handle);
+    await handle.done.catch((err: unknown) => {
+      task.translation = `⚠ ${errorMessage(err)}`;
+    });
+    completed += 1;
+    updateProgress(task.page);
+  };
+
+  let cursor = 0;
+  const worker = async (): Promise<void> => {
+    while (cursor < total) {
+      if (stopped) return;
+      await startOne(tasks[cursor++]);
+    }
+  };
+  updateProgress(1);
+  await Promise.all(Array.from({ length: BILINGUAL_CONCURRENCY }, () => worker()));
+  stopBtn.remove();
+
+  const sorted = [...tasks].sort((a, b) => a.index - b.index);
+  const meta = deps.annotations.meta();
+  const lines: string[] = [];
+  lines.push(`# ${meta?.title ?? "文档"} — 对照翻译（前 ${n} 页）`);
+  lines.push("");
+  lines.push(`> 译入：${lang} · 导出时间：${new Date().toLocaleString()}`);
+  lines.push("");
+  let lastPage = 0;
+  for (const t of sorted) {
+    if (t.page !== lastPage) {
+      lines.push(`## 第 ${t.page} 页`);
+      lines.push("");
+      lastPage = t.page;
+    }
+    lines.push("**原文**");
+    lines.push("");
+    lines.push(`> ${t.paragraph.replace(/\n/g, "\n> ")}`);
+    lines.push("");
+    lines.push(`**译文（${lang}）**`);
+    lines.push("");
+    lines.push(`> ${t.translation.replace(/\n/g, "\n> ")}`);
+    lines.push("");
+  }
+  const md = lines.join("\n");
+  exportBusy = false;
+
+  try {
+    const path = await saveDialog({
+      defaultPath: `${(meta?.title ?? "document").replace(/\.pdf$/i, "")}-对照翻译.md`,
+      filters: [{ name: "Markdown", extensions: ["md"] }],
+    });
+    if (typeof path === "string") {
+      await invoke("save_text", { path, content: md });
+      body.innerHTML = `<div class="card-empty">✓ 已导出 ${total} 段到 ${path}</div>`;
+    } else {
+      await copyToClipboard(md);
+      body.innerHTML = `<div class="card-empty">已取消保存，${total} 段对照内容已复制到剪贴板</div>`;
+    }
+  } catch (err) {
+    body.innerHTML = "";
+    const box = document.createElement("div");
+    box.className = "card-error";
+    box.textContent = `导出失败：${errorMessage(err)}（内容已复制到剪贴板）`;
+    body.append(box);
+    await copyToClipboard(md);
+  }
 }

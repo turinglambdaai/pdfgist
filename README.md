@@ -38,10 +38,8 @@ npm run icon
 
 ## Roadmap
 
-- [ ] Light annotations (highlights linked to AI actions)
-- [ ] Batch translation export (Markdown)
 - [ ] EPUB support
-- [ ] Notes export (Markdown, Obsidian-friendly)
+- [ ] Annotation sidecar files (sync highlights via cloud drives)
 
 ## License
 

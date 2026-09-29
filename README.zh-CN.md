@@ -38,10 +38,8 @@ npm run icon
 
 ## 路线图
 
-- [ ] 轻批注（高亮联动 AI）
-- [ ] 批量翻译导出（Markdown）
 - [ ] EPUB 支持
-- [ ] 笔记导出（Markdown，对 Obsidian 友好）
+- [ ] 批注 sidecar 文件（可随网盘同步）
 
 ## 许可证
 

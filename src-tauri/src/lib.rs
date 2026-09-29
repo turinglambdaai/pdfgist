@@ -1,3 +1,4 @@
+mod annotations;
 mod library;
 mod llm;
 mod settings;
@@ -21,6 +22,9 @@ pub fn run() {
             settings::get_settings,
             settings::save_settings,
             library::read_pdf,
+            library::save_text,
+            annotations::load_annotations,
+            annotations::save_annotations,
             llm::llm_chat,
             llm::llm_stop,
             llm::list_models

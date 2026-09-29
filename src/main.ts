@@ -5,8 +5,8 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { el } from "./dom";
 import { PdfViewer } from "./viewer";
 import { currentSettings, ensureProviderConfigured, initSettings, saveSettings } from "./settings";
-import type { RecentFile } from "./types";
-import { initSidebar, switchTab, translateSelection } from "./sidebar";
+import type { Annotation, RecentFile } from "./types";
+import { initSidebar, refreshAnnotations, switchTab, translateSelection } from "./sidebar";
 import { initUpdater } from "./updater";
 
 interface ViewerTab {
@@ -18,6 +18,8 @@ interface ViewerTab {
   path: string | null;
   pages: number;
   saveTimer: ReturnType<typeof setTimeout> | null;
+  annotations: Annotation[];
+  annoTimer: ReturnType<typeof setTimeout> | null;
 }
 
 const tabs: ViewerTab[] = [];
@@ -96,7 +98,7 @@ function activateTab(id: string): void {
   renderTabbar();
   refreshChrome();
   closeFindbar();
-  hideSelectionAction();
+  hideSelectionBar();
 }
 
 function closeTab(id: string): void {
@@ -104,7 +106,8 @@ function closeTab(id: string): void {
   if (index === -1) return;
   const [tab] = tabs.splice(index, 1);
   if (tab.saveTimer) clearTimeout(tab.saveTimer);
-  void saveRecentProgress(tab);
+  if (tab.annoTimer) clearTimeout(tab.annoTimer);
+  void saveAnnotations(tab);
   tab.viewer.close();
   tab.wrap.remove();
   if (tabs.length === 0) {
@@ -155,7 +158,28 @@ async function createTab(
   el("tab-views").append(wrap);
   const viewer = new PdfViewer(wrap, inner);
   viewer.setViewMode(currentSettings().view_mode);
-  const tab: ViewerTab = { id, viewer, wrap, inner, title, path, pages: 0, saveTimer: null };
+  const tab: ViewerTab = {
+    id,
+    viewer,
+    wrap,
+    inner,
+    title,
+    path,
+    pages: 0,
+    saveTimer: null,
+    annotations: [],
+    annoTimer: null,
+  };
+  if (path) {
+    void invoke<Annotation[]>("load_annotations", { path })
+      .then((list) => {
+        if (!tabs.includes(tab) || list.length === 0) return;
+        tab.annotations = list;
+        viewer.setAnnotations(list);
+        if (activeTabId === id) refreshAnnotations();
+      })
+      .catch(() => {});
+  }
 
   viewer.events.onDocLoaded = (info) => {
     tab.pages = info.pages;
@@ -422,14 +446,115 @@ async function printActive(): Promise<void> {
   tab.wrap.classList.remove("printing");
 }
 
-/* ---------- selection action ---------- */
+/* ---------- annotations ---------- */
 
-function hideSelectionAction(): void {
-  el("selection-action").classList.add("hidden");
+function queueAnnotationSave(tab: ViewerTab): void {
+  if (!tab.path) return;
+  if (tab.annoTimer) clearTimeout(tab.annoTimer);
+  tab.annoTimer = setTimeout(() => void saveAnnotations(tab), 800);
+}
+
+async function saveAnnotations(tab: ViewerTab): Promise<void> {
+  if (!tab.path) return;
+  try {
+    await invoke("save_annotations", { path: tab.path, annotations: tab.annotations });
+  } catch (err) {
+    console.error("annotations save failed", err);
+  }
+}
+
+function updateAnnotation(id: string, patch: Partial<Pick<Annotation, "note" | "color">>): void {
+  const tab = activeTab();
+  if (!tab) return;
+  const a = tab.annotations.find((x) => x.id === id);
+  if (!a) return;
+  Object.assign(a, patch);
+  if (patch.color) tab.viewer.setAnnotations(tab.annotations);
+  queueAnnotationSave(tab);
+  refreshAnnotations();
+}
+
+function removeAnnotation(id: string): void {
+  const tab = activeTab();
+  if (!tab) return;
+  tab.annotations = tab.annotations.filter((x) => x.id !== id);
+  tab.viewer.setAnnotations(tab.annotations);
+  queueAnnotationSave(tab);
+  refreshAnnotations();
+}
+
+/* ---------- selection bar & annotation popover ---------- */
+
+function hideSelectionBar(): void {
+  el("selection-bar").classList.add("hidden");
+}
+
+function createAnnotationFromSelection(color: "yellow" | "green" | "blue"): void {
+  const tab = activeTab();
+  const viewer = activeViewer();
+  if (!tab || !viewer) return;
+  const selInfo = viewer.selectionAnnotation();
+  const text = window.getSelection()?.toString().trim() ?? "";
+  hideSelectionBar();
+  if (!selInfo || !text) return;
+  const a: Annotation = {
+    id: `a-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+    page: selInfo.page,
+    rects: selInfo.rects,
+    excerpt: text.slice(0, 800),
+    color,
+    note: "",
+    created: Math.floor(Date.now() / 1000),
+  };
+  tab.annotations.push(a);
+  viewer.setAnnotations(tab.annotations);
+  queueAnnotationSave(tab);
+  refreshAnnotations();
+}
+
+let popoverAnnotation: Annotation | null = null;
+let noteSaveTimer: ReturnType<typeof setTimeout> | null = null;
+
+function markPopoverColor(color: string): void {
+  document
+    .querySelectorAll("#annotation-popover .sel-color")
+    .forEach((d) => d.classList.toggle("active", (d as HTMLElement).dataset.color === color));
+}
+
+function openAnnotationPopover(a: Annotation, x: number, y: number): void {
+  popoverAnnotation = a;
+  const pop = el("annotation-popover");
+  el("anno-excerpt").textContent =
+    a.excerpt.length > 160 ? `${a.excerpt.slice(0, 160)}…` : a.excerpt;
+  (el("anno-note") as HTMLTextAreaElement).value = a.note;
+  markPopoverColor(a.color);
+  pop.classList.remove("hidden");
+  const left = Math.min(Math.max(x - 140, 8), window.innerWidth - 296);
+  const top = Math.min(Math.max(y + 12, 8), window.innerHeight - 240);
+  pop.style.left = `${left}px`;
+  pop.style.top = `${top}px`;
+  (el("anno-note") as HTMLTextAreaElement).focus();
+}
+
+function closeAnnotationPopover(): void {
+  popoverAnnotation = null;
+  el("annotation-popover").classList.add("hidden");
 }
 
 function initSelectionAction(): void {
-  const btn = el("selection-action");
+  const bar = el("selection-bar");
+  bar.addEventListener("mousedown", (e) => e.preventDefault());
+  el("sel-translate").addEventListener("click", () => {
+    const text = window.getSelection()?.toString().trim() ?? "";
+    hideSelectionBar();
+    if (text) translateSelection(text);
+  });
+  for (const dot of bar.querySelectorAll<HTMLButtonElement>(".sel-color")) {
+    dot.addEventListener("click", () => {
+      createAnnotationFromSelection((dot.dataset.color as "yellow" | "green" | "blue") ?? "yellow");
+    });
+  }
+
   document.addEventListener("mouseup", () => {
     const sel = window.getSelection();
     const text = sel?.toString().trim() ?? "";
@@ -437,20 +562,56 @@ function initSelectionAction(): void {
     const inViewer = !!sel && sel.rangeCount > 0 && !!wrap && wrap.contains(sel.anchorNode);
     if (text.length > 1 && inViewer) {
       const rect = sel!.getRangeAt(0).getBoundingClientRect();
-      btn.style.left = `${Math.min(Math.max(rect.left + rect.width / 2 - 28, 8), window.innerWidth - 70)}px`;
-      btn.style.top = `${Math.max(rect.top - 42, 8)}px`;
-      btn.classList.remove("hidden");
+      bar.style.left = `${Math.min(Math.max(rect.left + rect.width / 2 - 52, 8), window.innerWidth - 130)}px`;
+      bar.style.top = `${Math.max(rect.top - 44, 8)}px`;
+      bar.classList.remove("hidden");
     } else {
-      hideSelectionAction();
+      hideSelectionBar();
     }
   });
-  btn.addEventListener("mousedown", (e) => e.preventDefault());
-  btn.addEventListener("click", () => {
-    const text = window.getSelection()?.toString().trim() ?? "";
-    hideSelectionAction();
-    if (text) translateSelection(text);
+
+  el("viewer-wrap").addEventListener("click", (e) => {
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed) return;
+    const viewer = activeViewer();
+    if (!viewer) return;
+    const hit = viewer.annotationAt(e.clientX, e.clientY);
+    if (hit) openAnnotationPopover(hit, e.clientX, e.clientY);
+    else closeAnnotationPopover();
   });
-  el("viewer-wrap").addEventListener("scroll", hideSelectionAction, true);
+  el("viewer-wrap").addEventListener(
+    "scroll",
+    () => {
+      hideSelectionBar();
+      closeAnnotationPopover();
+    },
+    true
+  );
+
+  for (const dot of document.querySelectorAll<HTMLButtonElement>("#annotation-popover .sel-color")) {
+    dot.addEventListener("click", () => {
+      if (!popoverAnnotation) return;
+      popoverAnnotation.color = (dot.dataset.color as "yellow" | "green" | "blue") ?? "yellow";
+      markPopoverColor(popoverAnnotation.color);
+      const tab = activeTab();
+      if (tab) tab.viewer.setAnnotations(tab.annotations);
+      queueAnnotationSave(tab!);
+    });
+  }
+  (el("anno-note") as HTMLTextAreaElement).addEventListener("input", (e) => {
+    if (!popoverAnnotation) return;
+    popoverAnnotation.note = (e.target as HTMLTextAreaElement).value;
+    if (noteSaveTimer) clearTimeout(noteSaveTimer);
+    noteSaveTimer = setTimeout(() => {
+      const tab = activeTab();
+      if (tab) queueAnnotationSave(tab);
+    }, 400);
+  });
+  el("anno-delete").addEventListener("click", () => {
+    if (popoverAnnotation) removeAnnotation(popoverAnnotation.id);
+    closeAnnotationPopover();
+  });
+  el("anno-close").addEventListener("click", closeAnnotationPopover);
 }
 
 /* ---------- wiring ---------- */
@@ -519,7 +680,7 @@ function initKeyboard(): void {
     else if (e.key === "-") activeViewer()?.zoomOut();
     else if (e.key === "Escape") {
       if (!el("findbar").classList.contains("hidden")) closeFindbar();
-      hideSelectionAction();
+      hideSelectionBar();
     }
   });
 }
@@ -578,6 +739,23 @@ async function init(): Promise<void> {
         const viewer = activeViewer();
         if (!viewer?.isOpen) return null;
         return viewer.getDocText(12, 24000);
+      },
+      pages: () => activeViewer()?.getDocPages() ?? 0,
+      pageText: async (n) => {
+        const viewer = activeViewer();
+        if (!viewer?.isOpen) return "";
+        return viewer.getPageText(n);
+      },
+    },
+    annotations: {
+      list: () => activeTab()?.annotations ?? [],
+      remove: removeAnnotation,
+      update: updateAnnotation,
+      jump: (a) => void activeViewer()?.scrollToAnnotation(a),
+      translate: (text) => translateSelection(text),
+      meta: () => {
+        const t = activeTab();
+        return t ? { title: t.title, path: t.path } : null;
       },
     },
   });

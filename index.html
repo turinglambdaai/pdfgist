@@ -148,12 +148,14 @@
             <button class="tab-btn active" data-tab="translate">翻译</button>
             <button class="tab-btn" data-tab="summarize">总结</button>
             <button class="tab-btn" data-tab="chat">对话</button>
+            <button class="tab-btn" data-tab="notes">批注</button>
             <button class="tab-btn" data-tab="settings">设置</button>
           </nav>
           <section id="tab-translate" class="tab-panel active">
             <div class="panel-actions">
               <button id="btn-translate-page" class="accent-btn">翻译本页</button>
               <button id="btn-translate-bilingual" class="ghost-btn" title="逐段对照：原文与译文成对显示">段落对照</button>
+              <button id="btn-export-bilingual" class="ghost-btn" title="逐段翻译前若干页并导出 Markdown">导出对照</button>
               <label class="inline-label">译入
                 <select id="target-lang"></select>
               </label>
@@ -185,6 +187,13 @@
                 <button id="btn-chat-stop" class="ghost-btn hidden">停止</button>
               </div>
             </div>
+          </section>
+          <section id="tab-notes" class="tab-panel">
+            <div class="panel-actions">
+              <button id="btn-export-annotations" class="accent-btn">导出 Markdown</button>
+              <button id="btn-copy-annotations" class="ghost-btn">复制全部</button>
+            </div>
+            <div id="notes-list" class="card-list"></div>
           </section>
           <section id="tab-settings" class="tab-panel">
             <div class="settings-form">
@@ -231,7 +240,26 @@
           </section>
         </aside>
       </div>
-      <button id="selection-action" class="hidden">翻译</button>
+      <div id="selection-bar" class="hidden">
+        <button id="sel-translate">翻译</button>
+        <span class="bar-sep"></span>
+        <button class="sel-color" data-color="yellow" title="黄色高亮"></button>
+        <button class="sel-color" data-color="green" title="绿色高亮"></button>
+        <button class="sel-color" data-color="blue" title="蓝色高亮"></button>
+      </div>
+      <div id="annotation-popover" class="hidden">
+        <div id="anno-excerpt" class="anno-excerpt"></div>
+        <div class="anno-colors">
+          <button class="sel-color" data-color="yellow" title="黄色"></button>
+          <button class="sel-color" data-color="green" title="绿色"></button>
+          <button class="sel-color" data-color="blue" title="蓝色"></button>
+        </div>
+        <textarea id="anno-note" rows="3" placeholder="笔记…（自动保存）"></textarea>
+        <div class="anno-footer">
+          <button id="anno-delete" class="ghost-btn">删除</button>
+          <button id="anno-close" class="accent-btn">完成</button>
+        </div>
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

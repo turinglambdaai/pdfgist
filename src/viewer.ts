@@ -1,6 +1,7 @@
 import * as pdfjs from "pdfjs-dist";
-import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
+import type { PDFDocumentProxy } from "pdfjs-dist";
 import type { TextContent, TextItem, TextMarkedContent } from "pdfjs-dist/types/src/display/api";
+import type { Annotation } from "./types";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
@@ -76,6 +77,7 @@ export class PdfViewer {
   private hits: SearchHit[] = [];
   private activeHit = -1;
   private searchToken = 0;
+  private annotations: Annotation[] = [];
   events: ViewerEvents = {};
 
   constructor(container: HTMLElement, viewer: HTMLElement) {
@@ -227,7 +229,7 @@ export class PdfViewer {
     }
     this.events.onZoom?.(this.scale);
     this.scheduleRender();
-    this.redrawHighlights();
+    this.redrawOverlay();
   }
 
   zoomIn(): void {
@@ -311,6 +313,89 @@ export class PdfViewer {
     return { pages: n, text: parts.join("\n\n") };
   }
 
+  /* ---------- annotations ---------- */
+
+  setAnnotations(list: Annotation[]): void {
+    this.annotations = list;
+    this.redrawOverlay();
+  }
+
+  hasAnnotations(page: number): boolean {
+    return this.annotations.some((a) => a.page === page);
+  }
+
+  // Converts the current text-layer selection into page-space rectangles.
+  selectionAnnotation(): { page: number; rects: Array<{ x: number; y: number; width: number; height: number }> } | null {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return null;
+    const range = sel.getRangeAt(0);
+    let node: Node | null = range.startContainer;
+    let pageDiv: HTMLElement | null = null;
+    while (node) {
+      if (node instanceof HTMLElement && node.classList.contains("page-view")) {
+        pageDiv = node;
+        break;
+      }
+      node = node.parentNode;
+    }
+    if (!pageDiv) return null;
+    const pv = this.pages.find((p) => p.div === pageDiv);
+    if (!pv) return null;
+    const pageRect = pageDiv.getBoundingClientRect();
+    const rects: Array<{ x: number; y: number; width: number; height: number }> = [];
+    for (const r of Array.from(range.getClientRects())) {
+      if (r.width < 1 || r.height < 2) continue;
+      rects.push({
+        x: (r.left - pageRect.left) / this.scale,
+        y: (r.top - pageRect.top) / this.scale,
+        width: r.width / this.scale,
+        height: r.height / this.scale,
+      });
+    }
+    if (rects.length === 0) return null;
+    return { page: pv.index + 1, rects };
+  }
+
+  // Hit-tests a viewport point against annotation rects; returns the
+  // annotation object identity passed to setAnnotations.
+  annotationAt(clientX: number, clientY: number): Annotation | null {
+    for (const pv of this.pages) {
+      const rect = pv.div.getBoundingClientRect();
+      if (
+        clientX < rect.left ||
+        clientX > rect.right ||
+        clientY < rect.top ||
+        clientY > rect.bottom
+      ) {
+        continue;
+      }
+      const px = (clientX - rect.left) / this.scale;
+      const py = (clientY - rect.top) / this.scale;
+      for (const a of this.annotations) {
+        if (a.page !== pv.index + 1) continue;
+        for (const r of a.rects) {
+          if (px >= r.x - 1 && px <= r.x + r.width + 1 && py >= r.y - 1 && py <= r.y + r.height + 1) {
+            return a;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  async scrollToAnnotation(a: Annotation): Promise<void> {
+    const pv = this.pages[a.page - 1];
+    if (!pv) return;
+    const r = a.rects[0];
+    if (!r) {
+      this.scrollToPage(a.page);
+      return;
+    }
+    if (!pv.rendered && this.doc) await this.ensureRendered(pv);
+    this.container.scrollTop = pv.div.offsetTop + r.y * this.scale - this.container.clientHeight / 3;
+    this.scheduleRender();
+  }
+
   /* ---------- search ---------- */
 
   // Progressive whole-document search, starting from the current page.
@@ -344,7 +429,7 @@ export class PdfViewer {
           start = haystack.indexOf(needle, start + needle.length);
         }
       }
-      if (pv.rendered && this.hasPageHits(pv.index + 1)) this.drawHighlights(pv);
+      if (pv.rendered && (this.hasPageHits(pv.index + 1) || this.hasAnnotations(pv.index + 1))) this.drawOverlay(pv);
       onCount(this.hits.length, false);
       if (first && this.hits.length > 0) {
         first = false;
@@ -392,7 +477,7 @@ export class PdfViewer {
       const target = pv.div.offsetTop + rect.top - this.container.clientHeight / 3;
       this.container.scrollTop = Math.max(0, target);
     }
-    await this.drawHighlights(pv);
+    await this.drawOverlay(pv);
   }
 
   clearSearch(): void {
@@ -405,9 +490,11 @@ export class PdfViewer {
     pv.highlightLayer.innerHTML = "";
   }
 
-  redrawHighlights(): void {
+  redrawOverlay(): void {
     for (const pv of this.pages) {
-      if (pv.rendered && this.hasPageHits(pv.index + 1)) void this.drawHighlights(pv);
+      if (pv.rendered && (this.hasPageHits(pv.index + 1) || this.hasAnnotations(pv.index + 1))) {
+        void this.drawOverlay(pv);
+      }
     }
   }
 
@@ -429,8 +516,21 @@ export class PdfViewer {
     };
   }
 
-  private async drawHighlights(pv: PageView): Promise<void> {
+  private async drawOverlay(pv: PageView): Promise<void> {
     this.clearHighlights(pv);
+    // annotations first (bottom), search hits on top
+    for (const a of this.annotations) {
+      if (a.page !== pv.index + 1) continue;
+      for (const r of a.rects) {
+        const div = document.createElement("div");
+        div.className = `anno anno-${a.color}`;
+        div.style.left = `${r.x * this.scale}px`;
+        div.style.top = `${r.y * this.scale}px`;
+        div.style.width = `${r.width * this.scale}px`;
+        div.style.height = `${r.height * this.scale}px`;
+        pv.highlightLayer.append(div);
+      }
+    }
     for (let i = 0; i < this.hits.length; i++) {
       const hit = this.hits[i];
       if (hit.page !== pv.index + 1) continue;
@@ -563,6 +663,16 @@ export class PdfViewer {
         break;
       }
     }
+    // in two-page view both pages of a row share offsetTop; report the row's
+    // left page so the indicator doesn't jump to the right-hand page
+    if (
+      this.viewMode === "double" &&
+      current > 1 &&
+      this.pages[current - 2] &&
+      this.pages[current - 2].div.offsetTop === this.pages[current - 1].div.offsetTop
+    ) {
+      current -= 1;
+    }
     if (current !== this.currentPage) {
       this.currentPage = current;
       this.events.onPageChange?.(current);
@@ -597,7 +707,7 @@ export class PdfViewer {
 
       await this.ensureTextItems(pv);
       await this.renderTextLayer(pv, viewport);
-      if (this.hasPageHits(pv.index + 1)) await this.drawHighlights(pv);
+      if (this.hasPageHits(pv.index + 1) || this.hasAnnotations(pv.index + 1)) await this.drawOverlay(pv);
       pv.rendered = true;
     } catch (err) {
       if (!isCancel(err)) console.error("page load failed", err);
@@ -642,4 +752,3 @@ export class PdfViewer {
   }
 }
 
-export type { PDFPageProxy };

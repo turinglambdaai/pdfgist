@@ -5,6 +5,17 @@ All notable changes to PDFGist are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-09-29
+
+Annotations and exports.
+
+### Added
+
+- Light annotations: select text and highlight in three colors, click a highlight to attach a note, change its color or delete it. Annotations are stored per file in the app config directory and survive sessions
+- Notes tab in the sidebar: all annotations of the active document with one-click jump, re-translate and delete, plus Markdown export (and copy) in an Obsidian-friendly format
+- Batch bilingual export: translate the first N pages paragraph-by-paragraph with two concurrent streams and save the original/translation pairs as Markdown
+- Two-page view now reports the row's left page in the page indicator
+
 ## [0.5.0] — 2026-09-29
 
 The daily-driver release.
@@ -100,7 +111,8 @@ First release.
 - Cancellable LLM streams (per-request cancellation tokens in the Rust backend)
 - CJK-ready text extraction (PDF.js cmaps and standard fonts bundled)
 
-[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.6.0
 [0.5.0]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.5.0
 [0.4.3]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.4.3
 [0.4.2]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.4.2
