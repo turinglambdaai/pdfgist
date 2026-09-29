@@ -5,6 +5,12 @@ All notable changes to PDFGist are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.4.2] — 2026-09-29
+
+### Changed
+
+- Optical centering of the paper-plane mark: the glyph is left-heavy (wide tail, pointed nose), so it now sits ~5% right of the bounding-box center in the app icon, favicon and the in-app empty state.
+
 ## [0.4.1] — 2026-09-29
 
 ### Changed
@@ -72,7 +78,8 @@ First release.
 - Cancellable LLM streams (per-request cancellation tokens in the Rust backend)
 - CJK-ready text extraction (PDF.js cmaps and standard fonts bundled)
 
-[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.4.2
 [0.4.1]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.4.1
 [0.4.0]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.4.0
 [0.3.1]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.3.1
