@@ -5,6 +5,15 @@ All notable changes to PDFGist are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.7.1] — 2026-09-29
+
+A guided installer and a system-following theme.
+
+### Added
+
+- Windows installer now guides you: Simplified Chinese / English language selection, per-user vs all-users install mode choice, the AGPL license page, and branded sidebar/header art
+- Appearance setting (跟随系统 / 浅色 / 深色) in Settings → 通用: the toolbar toggle picks an explicit theme, and 跟随系统 restores OS-following (previously a manual toggle permanently disabled system-following)
+
 ## [0.7.0] — 2026-09-29
 
 EPUB and a more comfortable workspace.
@@ -127,7 +136,8 @@ First release.
 - Cancellable LLM streams (per-request cancellation tokens in the Rust backend)
 - CJK-ready text extraction (PDF.js cmaps and standard fonts bundled)
 
-[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.7.1
 [0.7.0]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.7.0
 [0.6.1]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.6.1
 [0.6.0]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.6.0

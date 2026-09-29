@@ -389,7 +389,16 @@ async function buildOutline(viewer: PdfViewer | null): Promise<void> {
 
 /* ---------- theme ---------- */
 
-function applyTheme(theme: "light" | "dark"): void {
+// theme: "system" follows the OS; the toolbar toggle picks an explicit
+// theme while this select restores OS-following.
+function resolvedTheme(): "light" | "dark" {
+  const stored = localStorage.getItem(THEME_KEY);
+  if (stored === "light" || stored === "dark") return stored;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function applyTheme(): void {
+  const theme = resolvedTheme();
   document.documentElement.setAttribute("data-theme", theme);
   for (const t of tabs) {
     if (t.kind === "epub") (t.engine as EpubViewer).setTheme(theme);
@@ -397,18 +406,20 @@ function applyTheme(theme: "light" | "dark"): void {
 }
 
 function initTheme(): void {
-  const stored = localStorage.getItem(THEME_KEY);
+  applyTheme();
+  const select = el("theme-mode") as HTMLSelectElement;
+  select.value = localStorage.getItem(THEME_KEY) ?? "system";
   const media = window.matchMedia("(prefers-color-scheme: dark)");
-  applyTheme(stored === "dark" || stored === "light" ? stored : media.matches ? "dark" : "light");
-  media.addEventListener("change", (e) => {
-    if (!localStorage.getItem(THEME_KEY)) {
-      applyTheme(e.matches ? "dark" : "light");
-    }
+  media.addEventListener("change", () => {
+    if ((localStorage.getItem(THEME_KEY) ?? "system") === "system") applyTheme();
   });
   el("btn-theme").addEventListener("click", () => {
-    const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
-    applyTheme(next);
-    localStorage.setItem(THEME_KEY, next);
+    localStorage.setItem(THEME_KEY, resolvedTheme() === "dark" ? "light" : "dark");
+    applyTheme();
+  });
+  select.addEventListener("change", () => {
+    localStorage.setItem(THEME_KEY, select.value);
+    applyTheme();
   });
 }
 
