@@ -27,7 +27,7 @@ pub struct ChatRequest {
 #[derive(Serialize, Clone)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum StreamEvent {
-    Delta { text: String },
+    Delta { text: String, reasoning: bool },
     Cancelled,
     Error { message: String },
 }
@@ -68,18 +68,19 @@ fn truncate_chars(s: &str, max: usize) -> String {
     }
 }
 
-fn delta_text(value: &serde_json::Value) -> Option<String> {
+// Returns the delta text and whether it is chain-of-thought rather than
+// answer content (reasoning models stream their thinking in a separate
+// field). The frontend renders reasoning dimmed until real content arrives.
+fn delta_text(value: &serde_json::Value) -> Option<(String, bool)> {
     let choice = value.get("choices")?.get(0)?;
     let delta = choice.get("delta")?;
-    match delta.get("content").and_then(|v| v.as_str()) {
-        Some(text) => Some(text.to_string()),
-        // reasoning models stream their thinking in a separate field;
-        // surface it rather than showing nothing
-        None => delta
-            .get("reasoning_content")
-            .and_then(|v| v.as_str())
-            .map(String::from),
+    if let Some(text) = delta.get("content").and_then(|v| v.as_str()) {
+        return Some((text.to_string(), false));
     }
+    delta
+        .get("reasoning_content")
+        .and_then(|v| v.as_str())
+        .map(|text| (text.to_string(), true))
 }
 
 #[tauri::command]
@@ -238,9 +239,9 @@ async fn run_chat(
                         continue;
                     }
                     if let Ok(value) = serde_json::from_str::<serde_json::Value>(payload) {
-                        if let Some(text) = delta_text(&value) {
+                        if let Some((text, reasoning)) = delta_text(&value) {
                             if !text.is_empty() {
-                                let _ = on_delta.send(StreamEvent::Delta { text });
+                                let _ = on_delta.send(StreamEvent::Delta { text, reasoning });
                             }
                         }
                     }

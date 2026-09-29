@@ -15,8 +15,36 @@ export interface SidebarDeps {
   text: TextSource;
 }
 
-interface StreamEntry {
-  raw: string;
+// Accumulates reasoning and answer separately so reasoning models don't
+// dump their chain-of-thought into the visible answer: reasoning shows
+// dimmed until the first content delta arrives, then only content renders.
+class StreamBuffer {
+  private reasoning = "";
+  private content = "";
+  private gotContent = false;
+
+  push(text: string, isReasoning: boolean): void {
+    if (isReasoning) {
+      if (!this.gotContent) this.reasoning += text;
+    } else {
+      this.gotContent = true;
+      this.content += text;
+    }
+  }
+
+  html(): string {
+    if (this.content) return renderMarkdown(this.content);
+    if (this.reasoning) return `<div class="reasoning">${renderMarkdown(this.reasoning)}</div>`;
+    return "";
+  }
+
+  text(): string {
+    return this.content;
+  }
+
+  isEmpty(): boolean {
+    return !this.content && !this.reasoning;
+  }
 }
 
 const PAGE_TRUNCATE = 8000;
@@ -134,8 +162,8 @@ function streamInto(
 ): void {
   const provider = deps.getProvider();
   if (!provider) return;
-  const entry: StreamEntry = { raw: "" };
-  const { body, stopBtn } = makeCard(list, title, meta, () => entry.raw);
+  const entry = new StreamBuffer();
+  const { body, stopBtn } = makeCard(list, title, meta, () => entry.text());
   if (sourceText) {
     const source = document.createElement("div");
     source.className = "card-source";
@@ -145,10 +173,10 @@ function streamInto(
   let scheduled = false;
   const flush = () => {
     scheduled = false;
-    body.innerHTML = renderMarkdown(entry.raw);
+    body.innerHTML = entry.html();
   };
-  const handle = chatStream(provider, messages, (delta) => {
-    entry.raw += delta;
+  const handle = chatStream(provider, messages, (delta, reasoning) => {
+    entry.push(delta, reasoning);
     if (!scheduled) {
       scheduled = true;
       requestAnimationFrame(flush);
@@ -167,7 +195,7 @@ function streamInto(
     .finally(() => {
       body.classList.remove("streaming");
       stopBtn.remove();
-      if (!entry.raw.trim()) {
+      if (entry.isEmpty()) {
         body.innerHTML = `<div class="card-empty">（无返回内容）</div>`;
       } else {
         flush();
@@ -255,7 +283,7 @@ async function translatePageBilingual(): Promise<void> {
     translateList(),
     `第 ${src.page} 页对照`,
     `0/${paragraphs.length} 段`,
-    () => slots.map((s) => s.raw).join("\n\n")
+    () => slots.map((s) => s.buffer.text()).join("\n\n")
   );
   if (paragraphs.length >= BILINGUAL_MAX_PARAS) {
     metaEl.textContent = `0/${paragraphs.length} 段（取前 ${BILINGUAL_MAX_PARAS} 段）`;
@@ -264,7 +292,7 @@ async function translatePageBilingual(): Promise<void> {
   // slots are created upfront in reading order; translations fill them in place
   interface Slot {
     textDiv: HTMLElement;
-    raw: string;
+    buffer: StreamBuffer;
     scheduled: boolean;
     flush: () => void;
   }
@@ -287,11 +315,11 @@ async function translatePageBilingual(): Promise<void> {
     body.append(pair);
     const slot: Slot = {
       textDiv,
-      raw: "",
+      buffer: new StreamBuffer(),
       scheduled: false,
       flush: () => {
         slot.scheduled = false;
-        textDiv.innerHTML = renderMarkdown(slot.raw);
+        textDiv.innerHTML = slot.buffer.html();
       },
     };
     slots.push(slot);
@@ -305,8 +333,8 @@ async function translatePageBilingual(): Promise<void> {
   const startOne = (index: number): Promise<void> => {
     const slot = slots[index];
     slot.textDiv.classList.add("streaming");
-    const handle = chatStream(provider, translatePrompt(paragraphs[index], lang), (delta) => {
-      slot.raw += delta;
+    const handle = chatStream(provider, translatePrompt(paragraphs[index], lang), (delta, reasoning) => {
+      slot.buffer.push(delta, reasoning);
       if (!slot.scheduled) {
         slot.scheduled = true;
         requestAnimationFrame(slot.flush);
@@ -315,7 +343,7 @@ async function translatePageBilingual(): Promise<void> {
     handles.push(handle);
     return handle.done
       .catch((err: unknown) => {
-        slot.raw = "";
+        slot.buffer = new StreamBuffer();
         slot.textDiv.innerHTML = "";
         const box = document.createElement("div");
         box.className = "card-error";
@@ -324,7 +352,7 @@ async function translatePageBilingual(): Promise<void> {
       })
       .finally(() => {
         slot.textDiv.classList.remove("streaming");
-        if (slot.raw.trim()) slot.flush();
+        if (!slot.buffer.isEmpty()) slot.flush();
         completed += 1;
         updateMeta();
       });
@@ -475,15 +503,15 @@ async function sendChat(): Promise<void> {
   bubble.classList.add("streaming");
   el("btn-chat-send").classList.add("hidden");
   el("btn-chat-stop").classList.remove("hidden");
-  let assistantText = "";
+  const assistant = new StreamBuffer();
   let scheduled = false;
   const flush = () => {
     scheduled = false;
-    bubble.innerHTML = renderMarkdown(assistantText);
+    bubble.innerHTML = assistant.html();
     el("chat-messages").scrollTop = el("chat-messages").scrollHeight;
   };
-  const handle = chatStream(provider, history, (delta) => {
-    assistantText += delta;
+  const handle = chatStream(provider, history, (delta, reasoning) => {
+    assistant.push(delta, reasoning);
     if (!scheduled) {
       scheduled = true;
       requestAnimationFrame(flush);
@@ -500,9 +528,11 @@ async function sendChat(): Promise<void> {
       chatHandle = null;
       el("btn-chat-send").classList.remove("hidden");
       el("btn-chat-stop").classList.add("hidden");
-      if (assistantText.trim()) {
-        chatHistory.push(userMsg, { role: "assistant", content: assistantText });
+      if (assistant.text().trim()) {
+        chatHistory.push(userMsg, { role: "assistant", content: assistant.text() });
         flush();
+      } else if (!assistant.isEmpty()) {
+        flush(); // reasoning-only stream (stopped before the answer) — keep it visible
       } else {
         bubble.remove();
       }

@@ -32,7 +32,7 @@ export interface ChatRequest {
 }
 
 export type StreamEvent =
-  | { type: "delta"; text: string }
+  | { type: "delta"; text: string; reasoning: boolean }
   | { type: "cancelled" }
   | { type: "error"; message: string };
 

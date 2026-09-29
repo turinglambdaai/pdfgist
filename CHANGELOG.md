@@ -5,6 +5,18 @@ All notable changes to PDFGist are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-09-28
+
+Brand refresh.
+
+### Added
+
+- Warm visual identity across the app (light and dark), aligned with the TuringLambdaAI product family: terracotta accent, paper-tone surfaces, segmented toolbar groups and tabs, redesigned empty state with the paper-plane mark
+
+### Fixed
+
+- Reasoning models no longer dump chain-of-thought into translation and summary output: thinking streams dimmed in place and the visible result keeps only the answer; copy and chat history carry the answer only
+
 ## [0.3.1] — 2026-09-28
 
 ### Fixed
@@ -54,7 +66,8 @@ First release.
 - Cancellable LLM streams (per-request cancellation tokens in the Rust backend)
 - CJK-ready text extraction (PDF.js cmaps and standard fonts bundled)
 
-[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.4.0
 [0.3.1]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.3.1
 [0.3.0]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.3.0
 [0.2.0]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.2.0

@@ -9,12 +9,13 @@ export interface StreamHandle {
 let seq = 0;
 
 // Streams one OpenAI-compatible chat completion through the Rust backend.
-// Deltas arrive via the channel; the promise settles when the stream ends
+// Deltas arrive via the channel (`reasoning` marks chain-of-thought text
+// from reasoning models); the promise settles when the stream ends
 // (rejecting with the provider error message on failure).
 export function chatStream(
   cfg: ProviderConfig,
   messages: ChatMessage[],
-  onDelta: (text: string) => void
+  onDelta: (text: string, reasoning: boolean) => void
 ): StreamHandle {
   const id = `req-${Date.now().toString(36)}-${seq++}`;
   let error: Error | null = null;
@@ -28,7 +29,7 @@ export function chatStream(
   const channel = new Channel<StreamEvent>();
   channel.onmessage = (event) => {
     if (event.type === "delta") {
-      onDelta(event.text);
+      onDelta(event.text, event.reasoning);
     } else if (event.type === "error") {
       error = new Error(event.message);
     }

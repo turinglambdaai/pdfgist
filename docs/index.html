@@ -1,112 +1,310 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>PDFGist — AI PDF reader with your own model</title>
-    <meta
-      name="description"
-      content="Local-first PDF reader with streaming AI translation, summaries and document chat. Bring your own API key — works with any OpenAI-compatible endpoint. Free, AGPL-3.0."
-    />
-    <style>
-      :root {
-        --text: #182234;
-        --muted: #67718a;
-        --accent: #2563eb;
-        --line: #e3e7ee;
-      }
-      * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        font-family: "Segoe UI", "Noto Sans", "Helvetica Neue", Arial, sans-serif;
-        color: var(--text);
-        background: #f4f6f9;
-        line-height: 1.6;
-      }
-      main { max-width: 820px; margin: 0 auto; padding: 64px 24px; }
-      .hero { display: flex; align-items: center; gap: 18px; }
-      .hero img { width: 72px; height: 72px; border-radius: 16px; }
-      h1 { font-size: 34px; margin: 0; }
-      .tagline { font-size: 18px; color: var(--muted); margin: 6px 0 32px; }
-      h2 { font-size: 20px; margin-top: 40px; }
-      code {
-        background: #e9edf4;
-        padding: 2px 6px;
-        border-radius: 5px;
-        font-size: 0.9em;
-      }
-      ul { padding-left: 22px; }
-      li { margin: 6px 0; }
-      .cta {
-        display: inline-block;
-        margin-top: 8px;
-        padding: 10px 22px;
-        background: var(--accent);
-        color: #fff;
-        border-radius: 9px;
-        text-decoration: none;
-        font-weight: 600;
-      }
-      footer {
-        margin-top: 64px;
-        border-top: 1px solid var(--line);
-        padding-top: 20px;
-        color: var(--muted);
-        font-size: 14px;
-      }
-      .shot {
-        margin: 28px 0;
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        background: #fff;
-        padding: 18px;
-        color: var(--muted);
-        font-size: 14px;
-      }
-    </style>
-  </head>
-  <body>
-    <main>
-      <div class="hero">
-        <img src="https://raw.githubusercontent.com/turinglambdaai/pdfgist/main/design/app-icon.png" alt="PDFGist icon" />
-        <div>
-          <h1>PDFGist</h1>
-          <p class="tagline">The AI PDF reader that brings your own model.</p>
-        </div>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PDFGist — 接入自己大模型的 AI PDF 阅读器</title>
+<meta name="description" content="本地优先的 AI PDF 阅读器：划词翻译、段落对照、一键总结、与文档对话。兼容任意 OpenAI 协议端点（GLM Coding、Kimi Code、DeepSeek、Qwen、Ollama…），API Key 只存本机。开源，AGPL-3.0。" />
+<link rel="icon" type="image/png" href="assets/favicon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #F9F7F4;
+    --surface: #FFFFFF;
+    --text: #1C1917;
+    --text-2: #57534E;
+    --text-3: #A8A29E;
+    --accent: #D97757;
+    --accent-hover: #C4623E;
+    --accent-bg: #FFF7ED;
+    --border: #E7E5E4;
+    --shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.05);
+    --shadow: 0 1px 3px rgba(28, 25, 23, 0.06), 0 1px 2px rgba(28, 25, 23, 0.04);
+    --shadow-lg: 0 10px 15px -3px rgba(28, 25, 23, 0.08), 0 4px 6px -4px rgba(28, 25, 23, 0.05);
+    --shadow-xl: 0 20px 25px -5px rgba(28, 25, 23, 0.1), 0 8px 10px -6px rgba(28, 25, 23, 0.06);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --radius-lg: 16px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #171412; --surface: #231F1D; --text: #E7E5E4; --text-2: #A8A29E; --text-3: #78716C;
+      --accent: #E8926A; --accent-hover: #F0A07C; --accent-bg: #2D2218; --border: #3D3835;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,.2);
+      --shadow: 0 1px 3px rgba(0,0,0,.25);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,.4);
+      --shadow-xl: 0 20px 25px -5px rgba(0,0,0,.5);
+    }
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 15px; line-height: 1.7; color: var(--text); background: var(--bg);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3 { font-family: "Inter", -apple-system, "Segoe UI", sans-serif; font-weight: 700; letter-spacing: -0.02em; line-height: 1.3; }
+  a { color: inherit; text-decoration: none; }
+  .container { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+  /* nav */
+  .nav { position: sticky; top: 0; z-index: 50; background: color-mix(in srgb, var(--bg) 85%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); }
+  .nav-inner { display: flex; align-items: center; height: 60px; gap: 28px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-family: "Inter", sans-serif; font-weight: 700; font-size: 17px; }
+  .brand img { width: 30px; height: 30px; border-radius: 8px; }
+  .nav-links { display: flex; gap: 22px; margin-left: auto; align-items: center; font-size: 14px; color: var(--text-2); }
+  .nav-links a:hover { color: var(--accent); }
+  .nav-cta { background: var(--accent); color: #fff !important; padding: 7px 16px; border-radius: 999px; font-weight: 600; }
+  .nav-cta:hover { background: var(--accent-hover); }
+  .lang-btn { border: 1px solid var(--border); background: var(--surface); color: var(--text-2); border-radius: 999px; padding: 5px 12px; font-size: 12.5px; cursor: pointer; font-family: inherit; }
+
+  /* hero */
+  .hero { padding: 84px 0 64px; text-align: center; }
+  .hero-badge { display: inline-flex; align-items: center; gap: 8px; background: var(--accent-bg); color: var(--accent); font-size: 13px; font-weight: 600; border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 999px; padding: 5px 16px; margin-bottom: 22px; }
+  .hero h1 { font-size: 46px; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 18px; }
+  .hero h1 em { font-style: normal; color: var(--accent); }
+  .hero .sub { font-size: 17px; color: var(--text-2); max-width: 640px; margin: 0 auto 32px; }
+  .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 14px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 26px; border-radius: 11px; font-size: 14.5px; font-weight: 600; transition: all .15s; }
+  .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 35%, transparent); }
+  .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
+  .btn-ghost { border: 1px solid var(--border); color: var(--text); background: var(--surface); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .hero-note { font-size: 13px; color: var(--text-3); }
+
+  /* hero shot */
+  .shot { margin: 48px auto 0; max-width: 1080px; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border); box-shadow: var(--shadow-xl); background: var(--surface); }
+  .shot img { display: block; width: 100%; }
+  .shot-dark { display: none; }
+  @media (prefers-color-scheme: dark) { .shot-light { display: none; } .shot-dark { display: block; } }
+
+  /* sections */
+  section { padding: 76px 0; }
+  .sec-head { text-align: center; max-width: 620px; margin: 0 auto 44px; }
+  .sec-head h2 { font-size: 32px; margin-bottom: 12px; }
+  .sec-head p { color: var(--text-2); font-size: 15.5px; }
+
+  /* bento */
+  .bento { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .bento-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px; transition: all .2s; }
+  .bento-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+  .bento-card.span-2 { grid-column: span 2; }
+  .card-icon { width: 42px; height: 42px; border-radius: 11px; background: var(--accent-bg); color: var(--accent); display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+  .card-icon svg { width: 21px; height: 21px; }
+  .bento-card h3 { font-size: 16.5px; margin-bottom: 8px; }
+  .bento-card p { font-size: 13.5px; color: var(--text-2); }
+
+  /* providers */
+  .prov-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 40px; display: flex; flex-direction: column; gap: 24px; align-items: center; }
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  .chip { font-family: "Inter", sans-serif; font-size: 13.5px; font-weight: 500; color: var(--text-2); background: var(--bg); border: 1px solid var(--border); border-radius: 999px; padding: 8px 18px; }
+  .chip.hot { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: var(--accent-bg); font-weight: 600; }
+  .prov-note { font-size: 13.5px; color: var(--text-3); text-align: center; }
+
+  /* privacy trio */
+  .trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .trio-card { text-align: center; padding: 28px 22px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+  .trio-card h3 { font-size: 15.5px; margin: 12px 0 6px; }
+  .trio-card p { font-size: 13px; color: var(--text-2); }
+
+  /* download */
+  .dl-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; max-width: 860px; margin: 0 auto; }
+  .dl-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 26px; text-align: center; transition: all .2s; }
+  .dl-card:hover { border-color: var(--accent); box-shadow: var(--shadow-lg); transform: translateY(-2px); }
+  .dl-card h3 { font-size: 16px; margin-bottom: 4px; }
+  .dl-card .fmt { font-size: 12.5px; color: var(--text-3); margin-bottom: 16px; font-family: "Inter", sans-serif; }
+  .dl-card a { display: inline-block; background: var(--accent); color: #fff; font-size: 13.5px; font-weight: 600; padding: 9px 22px; border-radius: 9px; }
+  .dl-card a:hover { background: var(--accent-hover); }
+
+  footer { border-top: 1px solid var(--border); padding: 32px 0; margin-top: 40px; }
+  .foot-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--text-3); }
+  .foot-inner a { color: var(--text-2); }
+  .foot-inner a:hover { color: var(--accent); }
+
+  /* scroll animation */
+  .animate-on-scroll { opacity: 0; transform: translateY(16px); transition: opacity .5s ease, transform .5s ease; }
+  .animate-on-scroll.visible { opacity: 1; transform: none; }
+
+  @media (max-width: 900px) {
+    .hero h1 { font-size: 34px; }
+    .bento, .trio, .dl-grid { grid-template-columns: 1fr; }
+    .bento-card.span-2 { grid-column: auto; }
+    .nav-links a:not(.nav-cta) { display: none; }
+  }
+</style>
+</head>
+<body>
+<nav class="nav">
+  <div class="container nav-inner">
+    <a class="brand" href="#"><img src="assets/favicon.png" alt="PDFGist" />PDFGist</a>
+    <div class="nav-links">
+      <a href="#features" data-en="Features" data-zh="功能">功能</a>
+      <a href="#models" data-en="Models" data-zh="模型">模型</a>
+      <a href="https://github.com/turinglambdaai/pdfgist" target="_blank" rel="noopener">GitHub</a>
+      <button class="lang-btn" id="langBtn">English</button>
+      <a class="nav-cta" href="#download" data-en="Download" data-zh="下载">下载</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero container">
+  <div class="hero-badge" data-en="Open source · AGPL-3.0 · Windows / macOS / Linux" data-zh="开源 · AGPL-3.0 · Windows / macOS / Linux">开源 · AGPL-3.0 · Windows / macOS / Linux</div>
+  <h1 data-en='An AI PDF reader that <em>brings your own model</em>' data-zh='接入<em>自己大模型</em>的 AI PDF 阅读器'>接入<em>自己大模型</em>的 AI PDF 阅读器</h1>
+  <p class="sub" data-en="Selection translation, paragraph-aligned bilingual reading, one-click summaries and document chat — streamed from any OpenAI-compatible endpoint you choose. Your key never leaves your machine." data-zh="划词翻译、段落对照精读、一键总结、与文档对话——流式输出，接你选择的任意 OpenAI 协议端点。API Key 只存本机。">划词翻译、段落对照精读、一键总结、与文档对话——流式输出，接你选择的任意 OpenAI 协议端点。API Key 只存本机。</p>
+  <div class="hero-actions">
+    <a class="btn btn-primary" href="#download" data-en="Download for Windows" data-zh="下载 Windows 版">下载 Windows 版</a>
+    <a class="btn btn-ghost" href="https://github.com/turinglambdaai/pdfgist" target="_blank" rel="noopener" data-en="View on GitHub" data-zh="GitHub 源码">GitHub 源码</a>
+  </div>
+  <p class="hero-note" data-en="Works with GLM Coding Plan, Kimi Code, DeepSeek, Qwen, Doubao, SiliconFlow, Ollama and more" data-zh="支持 GLM Coding 套餐、Kimi Code、DeepSeek、通义千问、豆包、硅基流动、Ollama 等">支持 GLM Coding 套餐、Kimi Code、DeepSeek、通义千问、豆包、硅基流动、Ollama 等</p>
+  <div class="shot animate-on-scroll">
+    <img class="shot-light" src="assets/hero-light.png" alt="PDFGist 阅读界面——段落对照翻译" />
+    <img class="shot-dark" src="assets/hero-dark.png" alt="PDFGist 阅读界面（深色模式）" />
+  </div>
+</header>
+
+<section id="features">
+  <div class="container">
+    <div class="sec-head animate-on-scroll">
+      <h2 data-en="Reading first, AI everywhere" data-zh="以阅读为本，AI 贯穿其中">以阅读为本，AI 贯穿其中</h2>
+      <p data-en="No bloat. A fast, focused reader with the AI workflow literature actually needs." data-zh="不做臃肿的全能编辑器——只把「读文献 + AI」这一件事做透。">不做臃肿的全能编辑器——只把「读文献 + AI」这一件事做透。</p>
+    </div>
+    <div class="bento">
+      <div class="bento-card span-2 animate-on-scroll">
+        <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h12M9 3v2m3.5 0C11 9 8 12 5 13.5M6 8c1.5 3 4.5 5.5 8 6.5"/><path d="M14 21l4-9 4 9m-6.7-3h5.4"/></svg></div>
+        <h3 data-en="Paragraph-aligned bilingual reading" data-zh="段落对照精读">段落对照精读</h3>
+        <p data-en="One click turns the current page into original/translation pairs, streamed in parallel paragraph by paragraph — read foreign papers without switching windows." data-zh="一键把当前页变成原文/译文成对对照，逐段并行流式——读外文文献不用再来回切窗口。">一键把当前页变成原文/译文成对对照，逐段并行流式——读外文文献不用再来回切窗口。</p>
       </div>
-
-      <p>
-        Most AI PDF apps lock you into their subscription. <strong>PDFGist</strong> is a thin,
-        fast reader, and the intelligence is whatever model <em>you</em> point it at: any
-        OpenAI-compatible endpoint — OpenAI, DeepSeek, Kimi, SiliconFlow, Ollama (local) — with
-        your key stored on your machine and requests sent straight to your provider.
-      </p>
-
-      <div class="shot">
-        Screenshot placeholder — reader view with AI sidebar streaming a translation.
+      <div class="bento-card animate-on-scroll">
+        <div class="card-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.8l2 5.2 5.2 2-5.2 2-2 5.2-2-5.2L4.8 10l5.2-2 2-5.2z"/></svg></div>
+        <h3 data-en="Selection translation" data-zh="划词翻译">划词翻译</h3>
+        <p data-en="Select any text, one click, streaming result — with a reasoning-model-aware display that keeps chain-of-thought out of your face." data-zh="选中即译，流式输出；对推理模型做了专门处理，思维过程自动置灰不碍眼。">选中即译，流式输出；对推理模型做了专门处理，思维过程自动置灰不碍眼。</p>
       </div>
+      <div class="bento-card animate-on-scroll">
+        <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg></div>
+        <h3 data-en="Summaries & document chat" data-zh="总结与文档对话">总结与文档对话</h3>
+        <p data-en="Structured summaries for the current page, a selection or the whole document — and a chat grounded in what you are reading." data-zh="当前页、选区或整份文档的一键结构化总结；对话基于你正在读的内容作答。">当前页、选区或整份文档的一键结构化总结；对话基于你正在读的内容作答。</p>
+      </div>
+      <div class="bento-card animate-on-scroll">
+        <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.8-3.8"/></svg></div>
+        <h3 data-en="Full-text search" data-zh="全文搜索">全文搜索</h3>
+        <p data-en="Ctrl+F searches the whole document with highlight overlays and match navigation, starting from where you are." data-zh="Ctrl+F 从当前页向外渐进扫描全文档，高亮全部命中，Enter/Shift+Enter 上下跳转。">Ctrl+F 从当前页向外渐进扫描全文档，高亮全部命中，Enter/Shift+Enter 上下跳转。</p>
+      </div>
+      <div class="bento-card animate-on-scroll">
+        <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg></div>
+        <h3 data-en="A reader that feels right" data-zh="顺手的阅读器">顺手的阅读器</h3>
+        <p data-en="Continuous scroll, lazy thumbnails, outline, dark mode, Ctrl+wheel zoom, editable page box — the essentials, done properly." data-zh="连续滚动、懒加载缩略图、目录、深色模式、Ctrl+滚轮缩放、页码直达——基本功，认真做。">连续滚动、懒加载缩略图、目录、深色模式、Ctrl+滚轮缩放、页码直达——基本功，认真做。</p>
+      </div>
+    </div>
+  </div>
+</section>
 
-      <h2>Highlights</h2>
-      <ul>
-        <li>Select any text, one click to translate — results stream in as they generate</li>
-        <li>One-click structured summaries of the current page, a selection, or the whole document</li>
-        <li>Chat with the document, grounded in the current page, your selection, or the first pages</li>
-        <li>Presets for DeepSeek, OpenAI, Moonshot Kimi, SiliconFlow and Ollama, or any custom base URL</li>
-        <li>Continuous-scroll reading with zoom, fit-width, document outline and keyboard navigation</li>
-        <li>Local-first: no account, no telemetry, keys in your user config directory</li>
-      </ul>
+<section id="models">
+  <div class="container">
+    <div class="sec-head animate-on-scroll">
+      <h2 data-en="Your subscription, your models" data-zh="你的套餐，你的模型">你的套餐，你的模型</h2>
+      <p data-en="UPDF locks AI behind its own quota. PDFGist connects to any OpenAI-compatible endpoint — including the coding plans you already pay for." data-zh="UPDF 把 AI 锁在自己的订阅配额里；PDFGist 直连任意 OpenAI 协议端点——包括你已经付费的编程套餐。">UPDF 把 AI 锁在自己的订阅配额里；PDFGist 直连任意 OpenAI 协议端点——包括你已经付费的编程套餐。</p>
+    </div>
+    <div class="prov-wrap animate-on-scroll">
+      <div class="chips">
+        <span class="chip hot">GLM Coding 套餐</span>
+        <span class="chip hot">Kimi Code</span>
+        <span class="chip hot">豆包 Coding</span>
+        <span class="chip">智谱 GLM</span>
+        <span class="chip">DeepSeek</span>
+        <span class="chip">通义千问</span>
+        <span class="chip">Moonshot Kimi</span>
+        <span class="chip">豆包（火山方舟）</span>
+        <span class="chip">硅基流动</span>
+        <span class="chip">Ollama（本地）</span>
+        <span class="chip">OpenAI</span>
+        <span class="chip" data-en="Any OpenAI-compatible endpoint" data-zh="任意 OpenAI 兼容端点">任意 OpenAI 兼容端点</span>
+      </div>
+      <p class="prov-note" data-en="Presets ship with the correct plan endpoints (e.g. open.bigmodel.cn/api/coding/paas/v4), on-demand model list fetching and a connection test." data-zh="预设内置各套餐专属端点（如 open.bigmodel.cn/api/coding/paas/v4），模型列表按需拉取，一键测试连接。">预设内置各套餐专属端点（如 open.bigmodel.cn/api/coding/paas/v4），模型列表按需拉取，一键测试连接。</p>
+    </div>
+  </div>
+</section>
 
-      <h2>Get it</h2>
-      <p>
-        Installers for Windows (MSI / NSIS), macOS (dmg, Apple silicon) and Linux (deb / rpm /
-        AppImage) from GitHub Releases.
-      </p>
-      <a class="cta" href="https://github.com/turinglambdaai/pdfgist/releases">Download</a>
+<section id="privacy">
+  <div class="container">
+    <div class="trio">
+      <div class="trio-card animate-on-scroll">
+        <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
+        <h3 data-en="Key stays local" data-zh="Key 只存本机">Key 只存本机</h3>
+        <p data-en="Settings and API keys live in your user config directory — never uploaded." data-zh="设置与 API Key 保存在本机用户配置目录，绝不上传。">设置与 API Key 保存在本机用户配置目录，绝不上传。</p>
+      </div>
+      <div class="trio-card animate-on-scroll">
+        <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7l8-4z"/></svg></div>
+        <h3 data-en="Requests go straight to your provider" data-zh="请求直达你的服务商">请求直达你的服务商</h3>
+        <p data-en="No middleman servers. The app talks to the endpoint you configured, nothing else." data-zh="没有中间服务器，应用只和你配置的端点通信。">没有中间服务器，应用只和你配置的端点通信。</p>
+      </div>
+      <div class="trio-card animate-on-scroll">
+        <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-5z"/></svg></div>
+        <h3 data-en="Open source, auditable" data-zh="开源可审计">开源可审计</h3>
+        <p data-en="AGPL-3.0. Read every line that touches your documents." data-zh="AGPL-3.0，接触你文档的每一行代码都可查证。">AGPL-3.0，接触你文档的每一行代码都可查证。</p>
+      </div>
+    </div>
+  </div>
+</section>
 
-      <footer>
-        PDFGist is free software under AGPL-3.0 and is not affiliated with Adobe or any LLM provider.
-        <a href="https://github.com/turinglambdaai/pdfgist">Source on GitHub</a>
-      </footer>
-    </main>
-  </body>
+<section id="download">
+  <div class="container">
+    <div class="sec-head animate-on-scroll">
+      <h2 data-en="Download" data-zh="下载">下载</h2>
+      <p data-en="Free, open source. In-app auto-updates keep you current." data-zh="免费开源，应用内自动更新保持最新。">免费开源，应用内自动更新保持最新。</p>
+    </div>
+    <div class="dl-grid animate-on-scroll">
+      <div class="dl-card">
+        <h3>Windows</h3>
+        <p class="fmt">x64 · installer</p>
+        <a href="https://github.com/turinglambdaai/pdfgist/releases/latest" target="_blank" rel="noopener" data-en="Download" data-zh="下载">下载</a>
+      </div>
+      <div class="dl-card">
+        <h3>macOS</h3>
+        <p class="fmt">Apple silicon · dmg</p>
+        <a href="https://github.com/turinglambdaai/pdfgist/releases/latest" target="_blank" rel="noopener">Download</a>
+      </div>
+      <div class="dl-card">
+        <h3>Linux</h3>
+        <p class="fmt">deb / rpm / AppImage</p>
+        <a href="https://github.com/turinglambdaai/pdfgist/releases/latest" target="_blank" rel="noopener">Download</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container foot-inner">
+    <span>© 2026 TuringLambdaAI · PDFGist is free software under AGPL-3.0</span>
+    <span><a href="https://github.com/turinglambdaai/pdfgist" target="_blank" rel="noopener">GitHub</a> · <a href="https://jrtx.site" target="_blank" rel="noopener">jrtx.site</a></span>
+  </div>
+</footer>
+
+<script>
+  var langs = { zh: "English", en: "中文" };
+  var lang = localStorage.getItem("pdfgist-lang") || "zh";
+  function applyLang(l) {
+    lang = l;
+    localStorage.setItem("pdfgist-lang", l);
+    document.documentElement.lang = l === "zh" ? "zh-CN" : "en";
+    document.querySelectorAll("[data-en]").forEach(function (el) {
+      var v = el.getAttribute(l === "zh" ? "data-zh" : "data-en");
+      if (v !== null) el.innerHTML = v;
+    });
+    document.getElementById("langBtn").textContent = langs[l];
+  }
+  document.getElementById("langBtn").addEventListener("click", function () {
+    applyLang(lang === "zh" ? "en" : "zh");
+  });
+  applyLang(lang);
+
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting) { e.target.classList.add("visible"); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.12 });
+  document.querySelectorAll(".animate-on-scroll").forEach(function (el) { io.observe(el); });
+</script>
+</body>
 </html>
