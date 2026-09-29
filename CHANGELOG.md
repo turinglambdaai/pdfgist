@@ -5,6 +5,12 @@ All notable changes to PDFGist are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.4.3] — 2026-09-29
+
+### Changed
+
+- Reasoning models no longer stream their chain-of-thought into translation and summary cards: the thinking phase shows a compact animated "思考中" indicator, replaced by the streamed answer as soon as it starts. The dimmed reasoning text only appears as a fallback when a stream ends without any answer content. Stopped streams now say "（已停止）" instead of "（无返回内容）".
+
 ## [0.4.2] — 2026-09-29
 
 ### Changed
@@ -78,7 +84,8 @@ First release.
 - Cancellable LLM streams (per-request cancellation tokens in the Rust backend)
 - CJK-ready text extraction (PDF.js cmaps and standard fonts bundled)
 
-[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.4.3
 [0.4.2]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.4.2
 [0.4.1]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.4.1
 [0.4.0]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.4.0

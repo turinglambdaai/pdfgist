@@ -15,9 +15,11 @@ export interface SidebarDeps {
   text: TextSource;
 }
 
-// Accumulates reasoning and answer separately so reasoning models don't
-// dump their chain-of-thought into the visible answer: reasoning shows
-// dimmed until the first content delta arrives, then only content renders.
+// Accumulates reasoning and answer separately. While streaming, reasoning
+// is only a compact "thinking" indicator — raw chain-of-thought is noise
+// for a reader. `html(true)` (stream ended) falls back to the dimmed
+// reasoning, covering providers that put the whole answer into the
+// reasoning field.
 class StreamBuffer {
   private reasoning = "";
   private content = "";
@@ -32,10 +34,14 @@ class StreamBuffer {
     }
   }
 
-  html(): string {
+  html(final = false): string {
     if (this.content) return renderMarkdown(this.content);
-    if (this.reasoning) return `<div class="reasoning">${renderMarkdown(this.reasoning)}</div>`;
-    return "";
+    if (final) {
+      return this.reasoning ? `<div class="reasoning">${renderMarkdown(this.reasoning)}</div>` : "";
+    }
+    return this.reasoning
+      ? `<div class="thinking">思考中<span class="dots"><i>·</i><i>·</i><i>·</i></span></div>`
+      : "";
   }
 
   text(): string {
@@ -183,7 +189,11 @@ function streamInto(
     }
   });
   body.classList.add("streaming");
-  stopBtn.addEventListener("click", () => handle.cancel());
+  let stopped = false;
+  stopBtn.addEventListener("click", () => {
+    stopped = true;
+    handle.cancel();
+  });
   handle.done
     .catch((err: unknown) => {
       const box = document.createElement("div");
@@ -196,9 +206,9 @@ function streamInto(
       body.classList.remove("streaming");
       stopBtn.remove();
       if (entry.isEmpty()) {
-        body.innerHTML = `<div class="card-empty">（无返回内容）</div>`;
+        body.innerHTML = `<div class="card-empty">${stopped ? "（已停止）" : "（无返回内容）"}</div>`;
       } else {
-        flush();
+        body.innerHTML = entry.html(true);
       }
     });
 }
@@ -278,6 +288,7 @@ async function translatePageBilingual(): Promise<void> {
   }
   const lang = deps.getTargetLang();
   const handles: Array<{ cancel: () => void }> = [];
+  let bilingualStopped = false;
 
   const { body, metaEl, stopBtn } = makeCard(
     translateList(),
@@ -352,17 +363,24 @@ async function translatePageBilingual(): Promise<void> {
       })
       .finally(() => {
         slot.textDiv.classList.remove("streaming");
-        if (!slot.buffer.isEmpty()) slot.flush();
+        if (!slot.buffer.isEmpty()) {
+          slot.textDiv.innerHTML = slot.buffer.html(true);
+        } else {
+          slot.textDiv.innerHTML = `<div class="card-empty">${
+            bilingualStopped ? "（已停止）" : "（无返回内容）"
+          }</div>`;
+        }
         completed += 1;
         updateMeta();
       });
   };
 
   stopBtn.addEventListener("click", () => {
+    bilingualStopped = true;
     for (const handle of handles) handle.cancel();
   });
 
-  // workers pull from a shared cursor; order is preserved by the slots
+  // two workers pull from a shared cursor; order is preserved by the slots
   let cursor = 0;
   const worker = async (): Promise<void> => {
     while (cursor < paragraphs.length) {
@@ -504,20 +522,26 @@ async function sendChat(): Promise<void> {
   el("btn-chat-send").classList.add("hidden");
   el("btn-chat-stop").classList.remove("hidden");
   const assistant = new StreamBuffer();
+  let chatStopped = false;
   let scheduled = false;
-  const flush = () => {
+  const flush = (final = false) => {
     scheduled = false;
-    bubble.innerHTML = assistant.html();
+    bubble.innerHTML = assistant.html(final);
     el("chat-messages").scrollTop = el("chat-messages").scrollHeight;
   };
   const handle = chatStream(provider, history, (delta, reasoning) => {
     assistant.push(delta, reasoning);
     if (!scheduled) {
       scheduled = true;
-      requestAnimationFrame(flush);
+      requestAnimationFrame(() => flush(false));
     }
   });
   chatHandle = handle;
+  const stopBtnChat = el("btn-chat-stop");
+  const onStop = () => {
+    chatStopped = true;
+  };
+  stopBtnChat.addEventListener("click", onStop);
   handle.done
     .catch((err: unknown) => {
       bubble.textContent = `⚠ ${errorMessage(err)}`;
@@ -526,15 +550,18 @@ async function sendChat(): Promise<void> {
       chatBusy = false;
       bubble.classList.remove("streaming");
       chatHandle = null;
+      stopBtnChat.removeEventListener("click", onStop);
       el("btn-chat-send").classList.remove("hidden");
       el("btn-chat-stop").classList.add("hidden");
       if (assistant.text().trim()) {
         chatHistory.push(userMsg, { role: "assistant", content: assistant.text() });
-        flush();
+        flush(true);
       } else if (!assistant.isEmpty()) {
-        flush(); // reasoning-only stream (stopped before the answer) — keep it visible
+        flush(true); // reasoning-only stream (stopped before the answer)
       } else {
-        bubble.remove();
+        bubble.textContent = chatStopped ? "（已停止）" : "（无返回内容）";
+        bubble.style.color = "var(--text-faint)";
+        bubble.style.fontStyle = "italic";
       }
     });
 }
