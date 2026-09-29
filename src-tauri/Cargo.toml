@@ -1,6 +1,6 @@
 [package]
 name = "pdfgist"
-version = "0.8.2"
+version = "0.8.3"
 description = "Local-first PDF reader with BYOK AI translation and summarization"
 authors = ["jrtxio"]
 edition = "2021"
