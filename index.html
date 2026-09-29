@@ -11,7 +11,6 @@
         <button id="btn-open" class="icon-btn" title="打开 PDF（Ctrl+O）">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
         </button>
-        <input id="file-input" type="file" accept="application/pdf,.pdf" hidden />
         <div class="tool-sep"></div>
         <button id="btn-panel" class="icon-btn" title="缩略图与目录" disabled>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg>
@@ -44,6 +43,12 @@
           </button>
         </div>
         <div class="spacer"></div>
+        <button id="btn-double" class="icon-btn" title="双页视图" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 5.5C10.5 4.3 8.4 4 5 4v14c3.4 0 5.5.3 7 1.5 1.5-1.2 3.6-1.5 7-1.5V4c-3.4 0-5.5.3-7 1.5z"/><path d="M12 5.5v14"/></svg>
+        </button>
+        <button id="btn-print" class="icon-btn" title="打印" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7" rx="1"/></svg>
+        </button>
         <button id="btn-find" class="icon-btn" title="搜索（Ctrl+F）" disabled>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.8-3.8"/></svg>
         </button>
@@ -57,6 +62,12 @@
           <span>AI 助手</span>
         </button>
       </header>
+      <div id="tabbar" class="hidden">
+        <div id="tabs"></div>
+        <button id="btn-tab-new" class="icon-btn" title="打开新文件（Ctrl+O）">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+      </div>
       <div id="main">
         <aside id="left-panel" class="hidden">
           <div class="panel-tabs">
@@ -76,7 +87,7 @@
           </div>
         </aside>
         <div id="viewer-wrap">
-          <div id="viewer"></div>
+          <div id="tab-views"></div>
           <div id="findbar" class="hidden">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.8-3.8"/></svg>
             <input id="find-input" placeholder="在文档中搜索…" spellcheck="false" />
@@ -115,6 +126,10 @@
               <div class="empty-actions">
                 <button id="btn-open-empty" class="empty-cta">打开 PDF 文件</button>
                 <span class="empty-or">或拖到窗口任意位置</span>
+              </div>
+              <div id="recents" class="hidden">
+                <div class="recents-title">继续阅读</div>
+                <div id="recents-list"></div>
               </div>
               <div class="empty-hints"><kbd>Ctrl+O</kbd> 打开 <kbd>Ctrl+F</kbd> 搜索 <kbd>Ctrl+滚轮</kbd> 缩放 <kbd>划词</kbd> 翻译</div>
             </div>

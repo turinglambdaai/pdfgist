@@ -1,6 +1,6 @@
 [package]
 name = "pdfgist"
-version = "0.4.3"
+version = "0.5.0"
 description = "Local-first PDF reader with BYOK AI translation and summarization"
 authors = ["jrtxio"]
 edition = "2021"
@@ -17,6 +17,8 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-window-state = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }

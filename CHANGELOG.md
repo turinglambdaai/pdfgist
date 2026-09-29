@@ -5,6 +5,22 @@ All notable changes to PDFGist are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-09-29
+
+The daily-driver release.
+
+### Added
+
+- Tabbed reading: open multiple PDFs at once, each tab keeps its own render cache; Ctrl+W or middle-click closes a tab
+- Continue-reading shelf: the start screen lists recently read files with page and scroll position, and reopening resumes exactly there. Files are referenced in place — never copied into an app library, so folder layouts and sync drives stay untouched
+- Two-page book view, persisted across sessions
+- Printing: renders all pages of the active document first, then opens the system print dialog
+- Window size and position are restored between sessions
+
+### Changed
+
+- The open dialog and drag-drop now hand real file paths to the app; drag-drop previously never fired inside the Tauri webview
+
 ## [0.4.3] — 2026-09-29
 
 ### Changed
@@ -84,7 +100,8 @@ First release.
 - Cancellable LLM streams (per-request cancellation tokens in the Rust backend)
 - CJK-ready text extraction (PDF.js cmaps and standard fonts bundled)
 
-[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.4.3...HEAD
+[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.5.0
 [0.4.3]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.4.3
 [0.4.2]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.4.2
 [0.4.1]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.4.1

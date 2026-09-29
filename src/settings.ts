@@ -23,6 +23,8 @@ function defaultSettings(): Settings {
       model: preset.models[0] ?? "",
     },
     target_language: "中文",
+    recent_files: [],
+    view_mode: "single",
   };
 }
 
@@ -82,12 +84,14 @@ export async function initSettings(onNeedConfig: () => void): Promise<void> {
     const stored = await invoke<Partial<Settings>>("get_settings");
     // an empty provider means no real settings exist yet (fresh install or
     // hand-cleared file) — don't let empty strings override the defaults
-    current = !stored.provider?.name
-      ? fallback
-      : {
-          provider: { ...fallback.provider, ...stored.provider },
-          target_language: stored.target_language || fallback.target_language,
-        };
+    current = {
+      provider: stored.provider?.name
+        ? { ...fallback.provider, ...stored.provider }
+        : fallback.provider,
+      target_language: stored.target_language || fallback.target_language,
+      recent_files: Array.isArray(stored.recent_files) ? stored.recent_files : [],
+      view_mode: stored.view_mode === "double" ? "double" : "single",
+    };
   } catch {
     current = fallback;
   }

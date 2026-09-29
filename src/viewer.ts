@@ -69,6 +69,7 @@ export class PdfViewer {
   private thumbObserver: IntersectionObserver | null = null;
   private scale = 1;
   private fitWidth = true;
+  private viewMode: "single" | "double" = "single";
   private currentPage = 1;
   private renderScheduled = false;
   private resizeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -98,6 +99,31 @@ export class PdfViewer {
     return this.doc?.numPages ?? 0;
   }
 
+  getScale(): number {
+    return this.scale;
+  }
+
+  getViewMode(): "single" | "double" {
+    return this.viewMode;
+  }
+
+  setViewMode(mode: "single" | "double"): void {
+    this.viewMode = mode;
+    this.viewer.classList.toggle("double", mode === "double");
+    if (this.doc) {
+      if (this.fitWidth) this.setScale(this.computeFitWidth(), true);
+      else this.setScale(this.scale);
+    }
+  }
+
+  // Renders every page of the document sequentially — used before printing,
+  // where unrendered pages would come out blank.
+  async renderAll(): Promise<void> {
+    for (const pv of this.pages) {
+      if (!pv.rendered && this.doc) await this.ensureRendered(pv);
+    }
+  }
+
   currentPageNumber(): number {
     return this.currentPage;
   }
@@ -124,6 +150,7 @@ export class PdfViewer {
     }
     this.doc = doc;
 
+    this.viewer.classList.toggle("double", this.viewMode === "double");
     const metas = await Promise.all(
       Array.from({ length: doc.numPages }, (_, i) => doc.getPage(i + 1))
     );
@@ -177,7 +204,9 @@ export class PdfViewer {
 
   private computeFitWidth(): number {
     if (this.pages.length === 0) return 1;
-    return (this.container.clientWidth - 64) / this.pages[0].width;
+    const columns = this.viewMode === "double" ? 2 : 1;
+    const padding = columns === 2 ? 80 : 64;
+    return (this.container.clientWidth - padding) / (this.pages[0].width * columns);
   }
 
   setScale(next: number, fit = false): void {

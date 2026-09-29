@@ -10,7 +10,8 @@ Most AI PDF apps lock you into their subscription. PDFGist takes the opposite ap
 
 ## Features
 
-- **PDF reading** — continuous scroll, zoom / fit-width, document outline, keyboard navigation
+- **PDF reading** — tabbed documents, continuous scroll, two-page book view, zoom / fit-width, thumbnails, outline, full-text search, dark mode, printing, keyboard navigation
+- **Continue where you left off** — recent files keep your page and scroll position; files stay in your folders and sync drives, never copied into an app library
 - **Selection translation** — select any text, one click to translate, streaming result
 - **Bilingual page reading** — paragraph-aligned translation of the current page: original and translation in pairs, streamed in parallel
 - **Page & document summaries** — one-click structured summaries of the current page, a selection, or the whole document
@@ -37,10 +38,8 @@ npm run icon
 
 ## Roadmap
 
-- [ ] Two-page / book view
-- [ ] Multiple document tabs
+- [ ] Light annotations (highlights linked to AI actions)
 - [ ] Batch translation export (Markdown)
-- [ ] OCR for scanned PDFs
 - [ ] EPUB support
 - [ ] Notes export (Markdown, Obsidian-friendly)
 

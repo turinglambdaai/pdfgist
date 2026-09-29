@@ -25,9 +25,33 @@ impl Default for ProviderConfig {
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(default)]
+pub struct RecentFile {
+    pub path: String,
+    pub title: String,
+    pub page: u32,
+    pub scroll_ratio: f64,
+    pub last_read: i64,
+}
+
+impl Default for RecentFile {
+    fn default() -> Self {
+        Self {
+            path: String::new(),
+            title: String::new(),
+            page: 1,
+            scroll_ratio: 0.0,
+            last_read: 0,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(default)]
 pub struct Settings {
     pub provider: ProviderConfig,
     pub target_language: String,
+    pub recent_files: Vec<RecentFile>,
+    pub view_mode: String,
 }
 
 impl Default for Settings {
@@ -35,6 +59,8 @@ impl Default for Settings {
         Self {
             provider: ProviderConfig::default(),
             target_language: "中文".into(),
+            recent_files: Vec::new(),
+            view_mode: "single".into(),
         }
     }
 }

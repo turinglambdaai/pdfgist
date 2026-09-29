@@ -13,9 +13,19 @@ export interface ProviderConfig {
   model: string;
 }
 
+export interface RecentFile {
+  path: string;
+  title: string;
+  page: number;
+  scroll_ratio: number;
+  last_read: number; // unix seconds
+}
+
 export interface Settings {
   provider: ProviderConfig;
   target_language: string;
+  recent_files: RecentFile[];
+  view_mode: "single" | "double";
 }
 
 export interface ChatMessage {
