@@ -48,6 +48,32 @@ impl Default for Annotation {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(default)]
+pub struct Bookmark {
+    pub page: u32,
+    pub label: String,
+    pub created: i64,
+}
+
+impl Default for Bookmark {
+    fn default() -> Self {
+        Self {
+            page: 1,
+            label: String::new(),
+            created: 0,
+        }
+    }
+}
+
+/// Everything persisted per PDF: highlights/notes plus user bookmarks.
+#[derive(Serialize, Deserialize, Clone, Default)]
+#[serde(default)]
+pub struct DocumentData {
+    pub annotations: Vec<Annotation>,
+    pub bookmarks: Vec<Bookmark>,
+}
+
 // FNV-1a 64-bit — stable across processes, unlike std's DefaultHasher.
 fn fnv1a64(s: &str) -> u64 {
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
@@ -66,18 +92,30 @@ fn storage_path(app: &AppHandle, source: &str) -> Result<std::path::PathBuf, Str
 }
 
 #[tauri::command]
-pub fn load_annotations(app: AppHandle, path: String) -> Result<Vec<Annotation>, String> {
+pub fn load_document(app: AppHandle, path: String) -> Result<DocumentData, String> {
     let file = storage_path(&app, &path)?;
     if !file.exists() {
-        return Ok(Vec::new());
+        return Ok(DocumentData::default());
     }
     let text = fs::read_to_string(&file).map_err(|e| format!("读取批注失败：{e}"))?;
-    serde_json::from_str(&text).map_err(|e| format!("批注文件解析失败：{e}"))
+    let value: serde_json::Value =
+        serde_json::from_str(&text).map_err(|e| format!("批注文件解析失败：{e}"))?;
+    // 0.8.x wrote a bare annotation array; 0.9+ writes {annotations, bookmarks}
+    if value.is_array() {
+        let annotations: Vec<Annotation> =
+            serde_json::from_value(value).map_err(|e| format!("批注文件解析失败：{e}"))?;
+        Ok(DocumentData {
+            annotations,
+            bookmarks: Vec::new(),
+        })
+    } else {
+        serde_json::from_value(value).map_err(|e| format!("批注文件解析失败：{e}"))
+    }
 }
 
 #[tauri::command]
-pub fn save_annotations(app: AppHandle, path: String, annotations: Vec<Annotation>) -> Result<(), String> {
+pub fn save_document(app: AppHandle, path: String, data: DocumentData) -> Result<(), String> {
     let file = storage_path(&app, &path)?;
-    let json = serde_json::to_string_pretty(&annotations).map_err(|e| e.to_string())?;
+    let json = serde_json::to_string_pretty(&data).map_err(|e| e.to_string())?;
     fs::write(&file, json).map_err(|e| format!("保存批注失败：{e}"))
 }

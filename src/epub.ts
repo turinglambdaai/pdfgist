@@ -18,6 +18,7 @@ export interface EpubEvents {
   onPageChange?: (chapter: number) => void;
   onZoom?: (scale: number) => void;
   onLink?: (url: string) => void;
+  onSelection?: (sel: { text: string; x: number; y: number }) => void;
 }
 
 const READING_CSS = `
@@ -312,6 +313,20 @@ export class EpubViewer {
         "load",
         () => {
           this.fitFrame(iframe);
+          // relay in-book text selection to the parent UI
+          iframe.contentDocument?.addEventListener("mouseup", () => {
+            const sel = iframe.contentWindow?.getSelection();
+            if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+            const text = sel.toString().trim();
+            if (text.length < 2) return;
+            const rect = sel.getRangeAt(0).getBoundingClientRect();
+            const frameRect = iframe.getBoundingClientRect();
+            this.events.onSelection?.({
+              text: text.slice(0, 800),
+              x: frameRect.left + rect.left + rect.width / 2,
+              y: frameRect.top + rect.top - 8,
+            });
+          });
           resolve();
         },
         { once: true }

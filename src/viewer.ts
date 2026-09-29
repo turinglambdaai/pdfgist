@@ -1,7 +1,7 @@
 import * as pdfjs from "pdfjs-dist";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import type { TextContent, TextItem, TextMarkedContent } from "pdfjs-dist/types/src/display/api";
-import type { Annotation } from "./types";
+import type { Annotation, Bookmark } from "./types";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
@@ -86,6 +86,7 @@ export class PdfViewer {
   private activeHit = -1;
   private searchToken = 0;
   private annotations: Annotation[] = [];
+  private bookmarks: Bookmark[] = [];
   private password: string | null = null;
   private pendingPasswordCallback: ((password: string) => void) | null = null;
   private splitPane: HTMLElement | null = null;
@@ -448,9 +449,7 @@ export class PdfViewer {
 
   /* ---------- user bookmarks ---------- */
 
-  private bookmarks: Array<{ page: number; label: string; created: number }> = [];
-
-  getBookmarks(): Array<{ page: number; label: string; created: number }> {
+  getBookmarks(): Bookmark[] {
     return [...this.bookmarks].sort((a, b) => a.page - b.page || a.created - b.created);
   }
 
@@ -547,6 +546,10 @@ export class PdfViewer {
   setAnnotations(list: Annotation[]): void {
     this.annotations = list;
     this.redrawOverlay();
+  }
+
+  setBookmarks(list: Bookmark[]): void {
+    this.bookmarks = list;
   }
 
   hasAnnotations(page: number): boolean {

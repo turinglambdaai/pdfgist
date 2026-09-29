@@ -24,8 +24,8 @@ pub fn run() {
             settings::save_settings,
             library::read_pdf,
             library::save_text,
-            annotations::load_annotations,
-            annotations::save_annotations,
+            annotations::load_document,
+            annotations::save_document,
             llm::llm_chat,
             llm::llm_stop,
             llm::list_models

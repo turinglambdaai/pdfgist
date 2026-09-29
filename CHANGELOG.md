@@ -5,6 +5,17 @@ All notable changes to PDFGist are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-09-29
+
+### Fixed
+
+- EPUB text selection now reaches the floating toolbar: select inside a book and translate it (previously the selection never left the sandboxed chapter frame)
+- User bookmarks are persisted per file again (0.8.0 shipped them session-only despite the notes): bookmarks live alongside annotations in the per-document data file, with automatic migration of 0.8.x annotation-only files
+
+### Changed
+
+- Product homepage refreshed to the current UI (bottom status bar, new brand mark) with updated feature story
+
 ## [0.8.3] — 2026-09-29
 
 ### Changed

@@ -47,6 +47,12 @@ export interface Settings {
   view_mode: "single" | "double";
 }
 
+export interface Bookmark {
+  page: number;
+  label: string;
+  created: number; // unix seconds
+}
+
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
   content: string;

@@ -12,7 +12,7 @@ function asPdf(e: Engine | null): PdfViewer | null {
   return e instanceof PdfViewer ? e : null;
 }
 import { currentSettings, ensureProviderConfigured, initSettings, saveSettings } from "./settings";
-import type { Annotation, RecentFile } from "./types";
+import type { Annotation, Bookmark, RecentFile } from "./types";
 import { initSidebar, refreshAnnotations, switchTab, translateSelection } from "./sidebar";
 import { initUpdater } from "./updater";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -28,11 +28,14 @@ interface ViewerTab {
   pages: number;
   saveTimer: ReturnType<typeof setTimeout> | null;
   annotations: Annotation[];
+  bookmarks: Bookmark[];
   annoTimer: ReturnType<typeof setTimeout> | null;
+  dataTimer: ReturnType<typeof setTimeout> | null;
   splitOn: boolean;
 }
 
 const tabs: ViewerTab[] = [];
+let pendingSelection = "";
 let activeTabId: string | null = null;
 let tabSeq = 0;
 let firstDocSeen = false;
@@ -71,6 +74,8 @@ function renderBookmarks(pdf: PdfViewer | null): void {
     del.addEventListener("click", (e) => {
       e.stopPropagation();
       pdf.removeBookmark(b.page);
+      const tab = activeTab();
+      if (tab) queueAnnotationSave(tab);
       renderBookmarks(pdf);
     });
     item.append(page, label, del);
@@ -80,10 +85,13 @@ function renderBookmarks(pdf: PdfViewer | null): void {
 }
 
 function toggleBookmarkActive(): void {
+  const tab = activeTab();
   const pdf = asPdf(activeViewer());
-  if (!pdf?.isOpen) return;
+  if (!tab || !pdf?.isOpen) return;
   const result = pdf.toggleBookmark();
+  tab.bookmarks = pdf.getBookmarks();
   el("btn-bookmark").classList.toggle("active", result === "added");
+  queueAnnotationSave(tab);
   renderBookmarks(pdf);
 }
 
@@ -236,7 +244,7 @@ function closeTab(id: string): void {
   const [tab] = tabs.splice(index, 1);
   if (tab.saveTimer) clearTimeout(tab.saveTimer);
   if (tab.annoTimer) clearTimeout(tab.annoTimer);
-  void saveAnnotations(tab);
+  void saveDocumentData(tab);
   tab.engine.close();
   tab.wrap.remove();
   if (tabs.length === 0) {
@@ -377,15 +385,19 @@ async function createTab(
     pages: 0,
     saveTimer: null,
     annotations: [],
+    bookmarks: [],
     annoTimer: null,
+    dataTimer: null,
     splitOn: false,
   };
   if (path) {
-    void invoke<Annotation[]>("load_annotations", { path })
-      .then((list) => {
-        if (!tabs.includes(tab) || list.length === 0) return;
-        tab.annotations = list;
-        engine.setAnnotations(list);
+    void invoke<{ annotations: Annotation[]; bookmarks: Bookmark[] }>("load_document", { path })
+      .then((data) => {
+        if (!tabs.includes(tab)) return;
+        tab.annotations = data.annotations;
+        tab.bookmarks = data.bookmarks;
+        engine.setAnnotations(data.annotations);
+        if (engine instanceof PdfViewer) engine.setBookmarks(data.bookmarks);
         if (activeTabId === id) refreshAnnotations();
       })
       .catch(() => {});
@@ -423,6 +435,16 @@ async function createTab(
   engine.events.onLink = (url: string) => {
     void openUrl(url).catch((err) => alert(`无法打开链接：${err}`));
   };
+  if (engine instanceof EpubViewer) {
+    engine.events.onSelection = (sel) => {
+      pendingSelection = sel.text;
+      const bar = el("selection-bar");
+      bar.style.left = `${Math.min(Math.max(sel.x - 52, 8), window.innerWidth - 130)}px`;
+      bar.style.top = `${Math.max(sel.y - 44, 8)}px`;
+      bar.classList.add("epub");
+      bar.classList.remove("hidden");
+    };
+  }
 
   tabs.push(tab);
   activateTab(id);
@@ -724,15 +746,18 @@ async function printActive(): Promise<void> {
 function queueAnnotationSave(tab: ViewerTab): void {
   if (!tab.path) return;
   if (tab.annoTimer) clearTimeout(tab.annoTimer);
-  tab.annoTimer = setTimeout(() => void saveAnnotations(tab), 800);
+  tab.annoTimer = setTimeout(() => void saveDocumentData(tab), 800);
 }
 
-async function saveAnnotations(tab: ViewerTab): Promise<void> {
+async function saveDocumentData(tab: ViewerTab): Promise<void> {
   if (!tab.path) return;
   try {
-    await invoke("save_annotations", { path: tab.path, annotations: tab.annotations });
+    await invoke("save_document", {
+      path: tab.path,
+      data: { annotations: tab.annotations, bookmarks: tab.bookmarks },
+    });
   } catch (err) {
-    console.error("annotations save failed", err);
+    console.error("document data save failed", err);
   }
 }
 
@@ -818,7 +843,7 @@ function initSelectionAction(): void {
   const bar = el("selection-bar");
   bar.addEventListener("mousedown", (e) => e.preventDefault());
   el("sel-translate").addEventListener("click", () => {
-    const text = window.getSelection()?.toString().trim() ?? "";
+    const text = pendingSelection || (window.getSelection()?.toString().trim() ?? "");
     hideSelectionBar();
     if (text) translateSelection(text);
   });
@@ -833,6 +858,7 @@ function initSelectionAction(): void {
     const text = sel?.toString().trim() ?? "";
     const wrap = activeTab()?.wrap;
     const inViewer = !!sel && sel.rangeCount > 0 && !!wrap && wrap.contains(sel.anchorNode);
+    if (text.length > 1) pendingSelection = text;
     if (text.length > 1 && inViewer) {
       const rect = sel!.getRangeAt(0).getBoundingClientRect();
       bar.style.left = `${Math.min(Math.max(rect.left + rect.width / 2 - 52, 8), window.innerWidth - 130)}px`;
