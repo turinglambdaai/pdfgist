@@ -4,6 +4,13 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { el } from "./dom";
 import { PdfViewer } from "./viewer";
+import { EpubViewer } from "./epub";
+
+type Engine = PdfViewer | EpubViewer;
+
+function asPdf(e: Engine | null): PdfViewer | null {
+  return e instanceof PdfViewer ? e : null;
+}
 import { currentSettings, ensureProviderConfigured, initSettings, saveSettings } from "./settings";
 import type { Annotation, RecentFile } from "./types";
 import { initSidebar, refreshAnnotations, switchTab, translateSelection } from "./sidebar";
@@ -11,7 +18,8 @@ import { initUpdater } from "./updater";
 
 interface ViewerTab {
   id: string;
-  viewer: PdfViewer;
+  kind: "pdf" | "epub";
+  engine: Engine;
   wrap: HTMLDivElement; // scroll container, one per tab
   inner: HTMLDivElement; // pages container
   title: string;
@@ -34,8 +42,8 @@ function activeTab(): ViewerTab | undefined {
   return tabs.find((t) => t.id === activeTabId);
 }
 
-function activeViewer(): PdfViewer | null {
-  return activeTab()?.viewer ?? null;
+function activeViewer(): Engine | null {
+  return activeTab()?.engine ?? null;
 }
 
 function basename(path: string): string {
@@ -108,7 +116,7 @@ function closeTab(id: string): void {
   if (tab.saveTimer) clearTimeout(tab.saveTimer);
   if (tab.annoTimer) clearTimeout(tab.annoTimer);
   void saveAnnotations(tab);
-  tab.viewer.close();
+  tab.engine.close();
   tab.wrap.remove();
   if (tabs.length === 0) {
     activeTabId = null;
@@ -124,7 +132,7 @@ function closeTab(id: string): void {
 
 function refreshChrome(): void {
   const tab = activeTab();
-  const has = !!tab && tab.viewer.isOpen;
+  const has = !!tab && tab.engine.isOpen;
   setToolbarEnabled(Boolean(has));
   el("empty-state").classList.toggle("hidden", tabs.length > 0);
   renderRecents();
@@ -136,18 +144,49 @@ function refreshChrome(): void {
   }
   el("doc-title").textContent = tab.title;
   el("page-total").textContent = String(tab.pages || "–");
-  (el("page-input") as HTMLInputElement).value = tab.viewer.currentPageNumber().toString();
-  (el("btn-zoom-reset") as HTMLButtonElement).textContent = `${Math.round(tab.viewer.getScale() * 100)}%`;
-  void buildOutline(tab.viewer);
-  tab.viewer.buildThumbnails(el("thumbs-grid"));
-  tab.viewer.updateActiveThumb();
+  (el("page-input") as HTMLInputElement).value = tab.engine.currentPageNumber().toString();
+  (el("btn-zoom-reset") as HTMLButtonElement).textContent = `${Math.round(tab.engine.getScale() * 100)}%`;
+  tab.engine.updateActiveThumb();
+  (el("btn-double") as HTMLButtonElement).disabled = tab.kind === "epub";
+  (el("btn-print") as HTMLButtonElement).disabled = tab.kind === "epub";
+  if (tab.kind === "pdf") {
+    void buildOutline(asPdf(tab.engine));
+    asPdf(tab.engine)?.buildThumbnails(el("thumbs-grid"));
+    setThumbsTabEnabled(true);
+  } else {
+    el("outline-tree").innerHTML = "";
+    buildEpubOutline(tab.engine as EpubViewer);
+    el("thumbs-grid").innerHTML = "";
+    setThumbsTabEnabled(false);
+    if (leftPanelTab === "thumbs") showLeftPanel("outline");
+  }
+}
+
+function setThumbsTabEnabled(enabled: boolean): void {
+  (el("panel-tab-thumbs") as HTMLButtonElement).disabled = !enabled;
+}
+
+function buildEpubOutline(engine: EpubViewer): void {
+  const tree = el("outline-tree");
+  tree.innerHTML = "";
+  const toc = engine.getToc();
+  el("outline-empty").classList.toggle("hidden", toc.length > 0);
+  for (const item of toc) {
+    const node = document.createElement("div");
+    node.className = "outline-item";
+    node.style.paddingLeft = `${8 + item.level * 14}px`;
+    node.textContent = item.title;
+    node.addEventListener("click", () => engine.scrollToPage(item.chapter));
+    tree.append(node);
+  }
 }
 
 async function createTab(
   buf: ArrayBuffer,
   title: string,
   path: string | null,
-  resume: RecentFile | null
+  resume: RecentFile | null,
+  kind: "pdf" | "epub"
 ): Promise<void> {
   const id = `tab-${Date.now().toString(36)}-${tabSeq++}`;
   const wrap = document.createElement("div");
@@ -156,11 +195,16 @@ async function createTab(
   inner.className = "viewer";
   wrap.append(inner);
   el("tab-views").append(wrap);
-  const viewer = new PdfViewer(wrap, inner);
-  viewer.setViewMode(currentSettings().view_mode);
+  const engine: Engine =
+    kind === "epub" ? new EpubViewer(wrap, inner) : new PdfViewer(wrap, inner);
+  if (engine instanceof PdfViewer) engine.setViewMode(currentSettings().view_mode);
+  if (engine instanceof EpubViewer) {
+    engine.setTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light");
+  }
   const tab: ViewerTab = {
     id,
-    viewer,
+    kind,
+    engine,
     wrap,
     inner,
     title,
@@ -175,13 +219,13 @@ async function createTab(
       .then((list) => {
         if (!tabs.includes(tab) || list.length === 0) return;
         tab.annotations = list;
-        viewer.setAnnotations(list);
+        engine.setAnnotations(list);
         if (activeTabId === id) refreshAnnotations();
       })
       .catch(() => {});
   }
 
-  viewer.events.onDocLoaded = (info) => {
+  engine.events.onDocLoaded = (info) => {
     tab.pages = info.pages;
     if (!firstDocSeen) {
       firstDocSeen = true;
@@ -191,15 +235,17 @@ async function createTab(
     void saveRecentProgress(tab);
     if (resume) restorePosition(tab, resume);
   };
-  viewer.events.onPageChange = (page) => {
+  engine.events.onPageChange = (page) => {
     if (activeTabId === id) {
       (el("page-input") as HTMLInputElement).value = String(page);
-      if (el("left-panel").classList.contains("hidden") === false) viewer.scrollToThumb();
+      if (tab.kind === "pdf" && el("left-panel").classList.contains("hidden") === false) {
+        asPdf(engine)?.scrollToThumb();
+      }
     }
-    viewer.updateActiveThumb();
+    engine.updateActiveThumb();
     queueRecentSave(tab);
   };
-  viewer.events.onZoom = (scale) => {
+  engine.events.onZoom = (scale) => {
     if (activeTabId === id) {
       (el("btn-zoom-reset") as HTMLButtonElement).textContent = `${Math.round(scale * 100)}%`;
     }
@@ -208,7 +254,7 @@ async function createTab(
 
   tabs.push(tab);
   activateTab(id);
-  await viewer.open(buf, title);
+  await engine.open(buf, title);
 }
 
 function restorePosition(tab: ViewerTab, resume: RecentFile): void {
@@ -228,14 +274,14 @@ function queueRecentSave(tab: ViewerTab): void {
 
 async function saveRecentProgress(tab: ViewerTab): Promise<void> {
   if (!tab.path) return;
-  if (tab.viewer.isOpen) {
+  if (tab.engine.isOpen) {
     const s = currentSettings();
     const span = tab.wrap.scrollHeight - tab.wrap.clientHeight;
     const ratio = span > 0 ? Math.min(1, Math.max(0, tab.wrap.scrollTop / span)) : 0;
     const entry: RecentFile = {
       path: tab.path,
       title: tab.title,
-      page: tab.viewer.currentPageNumber(),
+      page: tab.engine.currentPageNumber(),
       scroll_ratio: ratio,
       last_read: Math.floor(Date.now() / 1000),
     };
@@ -283,7 +329,8 @@ async function openPath(path: string, resume?: RecentFile): Promise<void> {
   }
   try {
     const buf = await invoke<ArrayBuffer>("read_pdf", { path });
-    await createTab(buf, basename(path), path, resume ?? null);
+    const kind: "pdf" | "epub" = /\.epub$/i.test(path) ? "epub" : "pdf";
+    await createTab(buf, basename(path), path, resume ?? null, kind);
   } catch (err) {
     alert(`打开失败：${err}`);
   }
@@ -292,7 +339,7 @@ async function openPath(path: string, resume?: RecentFile): Promise<void> {
 async function pickAndOpen(): Promise<void> {
   const path = await openDialog({
     multiple: false,
-    filters: [{ name: "PDF", extensions: ["pdf"] }],
+    filters: [{ name: "PDF / EPUB", extensions: ["pdf", "epub"] }],
   });
   if (typeof path === "string") void openPath(path);
 }
@@ -319,9 +366,10 @@ function toggleLeftPanel(): void {
   }
 }
 
-async function buildOutline(viewer: PdfViewer): Promise<void> {
+async function buildOutline(viewer: PdfViewer | null): Promise<void> {
   const tree = el("outline-tree");
   tree.innerHTML = "";
+  if (!viewer) return;
   const outline = await viewer.getOutline();
   el("outline-empty").classList.toggle("hidden", outline.length > 0);
 
@@ -343,6 +391,9 @@ async function buildOutline(viewer: PdfViewer): Promise<void> {
 
 function applyTheme(theme: "light" | "dark"): void {
   document.documentElement.setAttribute("data-theme", theme);
+  for (const t of tabs) {
+    if (t.kind === "epub") (t.engine as EpubViewer).setTheme(theme);
+  }
 }
 
 function initTheme(): void {
@@ -426,7 +477,7 @@ function initFindbar(): void {
 
 async function printActive(): Promise<void> {
   const tab = activeTab();
-  if (!tab || !tab.viewer.isOpen) return;
+  if (!tab || tab.kind !== "pdf" || !tab.engine.isOpen) return;
   if (tab.pages > 150 && !confirm(`共 ${tab.pages} 页，渲染全部页面可能需要一些时间，继续打印？`)) {
     return;
   }
@@ -435,7 +486,7 @@ async function printActive(): Promise<void> {
   const oldTitle = btn.title;
   btn.title = "正在渲染页面…";
   try {
-    await tab.viewer.renderAll();
+    await asPdf(tab.engine)?.renderAll();
   } catch {
     // print whatever rendered
   }
@@ -469,7 +520,7 @@ function updateAnnotation(id: string, patch: Partial<Pick<Annotation, "note" | "
   const a = tab.annotations.find((x) => x.id === id);
   if (!a) return;
   Object.assign(a, patch);
-  if (patch.color) tab.viewer.setAnnotations(tab.annotations);
+  if (patch.color) tab.engine.setAnnotations(tab.annotations);
   queueAnnotationSave(tab);
   refreshAnnotations();
 }
@@ -478,7 +529,7 @@ function removeAnnotation(id: string): void {
   const tab = activeTab();
   if (!tab) return;
   tab.annotations = tab.annotations.filter((x) => x.id !== id);
-  tab.viewer.setAnnotations(tab.annotations);
+  tab.engine.setAnnotations(tab.annotations);
   queueAnnotationSave(tab);
   refreshAnnotations();
 }
@@ -564,6 +615,7 @@ function initSelectionAction(): void {
       const rect = sel!.getRangeAt(0).getBoundingClientRect();
       bar.style.left = `${Math.min(Math.max(rect.left + rect.width / 2 - 52, 8), window.innerWidth - 130)}px`;
       bar.style.top = `${Math.max(rect.top - 44, 8)}px`;
+      bar.classList.toggle("epub", activeTab()?.kind === "epub");
       bar.classList.remove("hidden");
     } else {
       hideSelectionBar();
@@ -594,7 +646,7 @@ function initSelectionAction(): void {
       popoverAnnotation.color = (dot.dataset.color as "yellow" | "green" | "blue") ?? "yellow";
       markPopoverColor(popoverAnnotation.color);
       const tab = activeTab();
-      if (tab) tab.viewer.setAnnotations(tab.annotations);
+      if (tab) tab.engine.setAnnotations(tab.annotations);
       queueAnnotationSave(tab!);
     });
   }
@@ -640,7 +692,7 @@ function initToolbar(): void {
     s.view_mode = s.view_mode === "double" ? "single" : "double";
     void saveSettings(s);
     el("btn-double").classList.toggle("active", s.view_mode === "double");
-    for (const t of tabs) t.viewer.setViewMode(s.view_mode);
+    for (const t of tabs) if (t.kind === "pdf") asPdf(t.engine)?.setViewMode(s.view_mode);
   });
   (el("page-input") as HTMLInputElement).addEventListener("keydown", (e) => {
     if (e.key !== "Enter") return;
@@ -685,6 +737,65 @@ function initKeyboard(): void {
   });
 }
 
+function initSplitters(): void {
+  const clampV = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
+  const apply = (): void => {
+    const l = clampV(parseInt(localStorage.getItem("pdfgist-left-w") ?? "232", 10) || 232, 160, 440);
+    const r = clampV(parseInt(localStorage.getItem("pdfgist-sidebar-w") ?? "400", 10) || 400, 280, 680);
+    document.documentElement.style.setProperty("--left-w", `${l}px`);
+    document.documentElement.style.setProperty("--sidebar-w", `${r}px`);
+  };
+  apply();
+
+  const notifyAll = (() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    return () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        for (const t of tabs) t.engine.notifyContainerResized();
+      }, 120);
+    };
+  })();
+
+  const setup = (handleId: string, varName: string, key: string, min: number, max: number, invert: boolean): void => {
+    const handle = el(handleId);
+    handle.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      handle.classList.add("dragging");
+      document.body.classList.add("panel-resizing");
+      const startX = e.clientX;
+      const startW =
+        parseInt(getComputedStyle(document.documentElement).getPropertyValue(varName), 10) ||
+        (varName === "--left-w" ? 232 : 400);
+      let last = startW;
+      const onMove = (ev: MouseEvent): void => {
+        const delta = ev.clientX - startX;
+        last = Math.min(max, Math.max(min, startW + (invert ? -delta : delta)));
+        document.documentElement.style.setProperty(varName, `${last}px`);
+        notifyAll();
+      };
+      const onUp = (): void => {
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+        handle.classList.remove("dragging");
+        document.body.classList.remove("panel-resizing");
+        localStorage.setItem(key, String(last));
+        for (const t of tabs) t.engine.notifyContainerResized();
+      };
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+    });
+    handle.addEventListener("dblclick", () => {
+      localStorage.removeItem(key);
+      const def = varName === "--left-w" ? "232px" : "400px";
+      document.documentElement.style.setProperty(varName, def);
+      for (const t of tabs) t.engine.notifyContainerResized();
+    });
+  };
+  setup("left-resize", "--left-w", "pdfgist-left-w", 160, 440, false);
+  setup("sidebar-resize", "--sidebar-w", "pdfgist-sidebar-w", 280, 680, true);
+}
+
 function initWheelZoom(): void {
   el("viewer-wrap").addEventListener(
     "wheel",
@@ -709,7 +820,7 @@ function initDragDrop(): void {
       depth = 0;
       overlay.classList.add("hidden");
       const path = event.payload.paths[0];
-      if (path && /\.pdf$/i.test(path)) void openPath(path);
+      if (path && /\.(pdf|epub)$/i.test(path)) void openPath(path);
     } else if (event.payload.type === "leave") {
       depth = Math.max(0, depth - 1);
       if (depth === 0) overlay.classList.add("hidden");
@@ -765,6 +876,7 @@ async function init(): Promise<void> {
   initDragDrop();
   initSelectionAction();
   initFindbar();
+  initSplitters();
   initUpdater();
   setToolbarEnabled(false);
   el("btn-double").classList.toggle("active", currentSettings().view_mode === "double");

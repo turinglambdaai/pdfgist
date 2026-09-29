@@ -2,6 +2,8 @@
    product family (jrtx.site, Taskly). */
 
 :root {
+  --left-w: 232px;
+  --sidebar-w: 400px;
   --bg: #F5F2ED;
   --panel: #FFFFFF;
   --panel-alt: #FAF8F5;
@@ -426,13 +428,14 @@ select:focus-visible {
 /* ---------- left panel (thumbnails / outline) ---------- */
 
 #left-panel {
-  width: 232px;
+  width: var(--left-w);
   flex-shrink: 0;
   background: var(--panel);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   min-height: 0;
+  position: relative;
 }
 
 .panel-tabs {
@@ -861,13 +864,85 @@ select:focus-visible {
 /* ---------- sidebar ---------- */
 
 #sidebar {
-  width: 400px;
+  width: var(--sidebar-w);
   flex-shrink: 0;
   background: var(--panel);
   border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   min-height: 0;
+  position: relative;
+}
+
+/* ---------- panel resize handles ---------- */
+
+.resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 7px;
+  cursor: col-resize;
+  z-index: 45;
+}
+
+#left-resize {
+  right: -4px;
+}
+
+#sidebar-resize {
+  left: -4px;
+}
+
+.resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 1px;
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.resize-handle:hover::after,
+.resize-handle.dragging::after {
+  background: var(--accent);
+}
+
+body.panel-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+/* ---------- epub reader ---------- */
+
+.epub-chapter {
+  display: block;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  margin: 0 0 4px;
+}
+
+.epub-title {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 40px 32px 8px;
+  text-align: center;
+}
+
+.epub-book-title {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-family: "Inter", var(--font);
+}
+
+.epub-book-author {
+  margin-top: 6px;
+  color: var(--text-dim);
+  font-size: 14px;
 }
 
 #update-banner {

@@ -248,6 +248,13 @@ export class PdfViewer {
     this.setScale(this.computeFitWidth(), true);
   }
 
+  // Container width changes via the panel splitters, not window resize.
+  notifyContainerResized(): void {
+    if (!this.doc) return;
+    if (this.fitWidth) this.setScale(this.computeFitWidth(), true);
+    else this.scheduleRender();
+  }
+
   scrollToPage(n: number): void {
     const pv = this.pages[n - 1];
     if (!pv) return;

@@ -5,6 +5,16 @@ All notable changes to PDFGist are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-09-29
+
+EPUB and a more comfortable workspace.
+
+### Added
+
+- EPUB support: open .epub files from the dialog, drag-drop or the continue-reading shelf. Chapters render as reflowable sandboxed sections with serif reading typography; the table of contents lands in the left panel, font-size zoom replaces page zoom, dark mode applies inside the book, and the whole AI workflow works on chapter text (selection translation, chapter translation, summaries, chat)
+- Whole-book search for EPUB with in-place marks and hit navigation
+- Resizable panels: drag the inner edges of the outline/thumbnails panel and the AI sidebar to resize (double-click resets); the reader reflows on release. Widths persist per install
+
 ## [0.6.1] — 2026-09-29
 
 ### Changed
@@ -117,7 +127,8 @@ First release.
 - Cancellable LLM streams (per-request cancellation tokens in the Rust backend)
 - CJK-ready text extraction (PDF.js cmaps and standard fonts bundled)
 
-[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.7.0
 [0.6.1]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.6.1
 [0.6.0]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.6.0
 [0.5.0]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.5.0
