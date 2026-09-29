@@ -10,6 +10,14 @@ export interface ViewerEvents {
   onPageChange?: (page: number) => void;
   onDocLoaded?: (info: { pages: number; title: string }) => void;
   onZoom?: (scale: number) => void;
+  onLink?: (url: string) => void;
+}
+
+export class PasswordRequiredError extends Error {
+  constructor(public readonly retry: boolean) {
+    super(retry ? "密码错误" : "需要密码");
+    this.name = "PasswordRequiredError";
+  }
 }
 
 export interface SearchHit {
@@ -78,12 +86,22 @@ export class PdfViewer {
   private activeHit = -1;
   private searchToken = 0;
   private annotations: Annotation[] = [];
+  private password: string | null = null;
+  private pendingPasswordCallback: ((password: string) => void) | null = null;
+  private splitPane: HTMLElement | null = null;
+  private splitSync: (() => void) | null = null;
+  private splitViews = new Map<number, { div: HTMLDivElement; canvas: HTMLCanvasElement; rendered: boolean }>();
   events: ViewerEvents = {};
 
   constructor(container: HTMLElement, viewer: HTMLElement) {
     this.container = container;
     this.viewer = viewer;
     container.addEventListener("scroll", () => this.scheduleRender());
+    container.addEventListener("click", (e) => {
+      const sel = window.getSelection();
+      if (sel && !sel.isCollapsed) return; // selection wins over links
+      this.linkLayerHit(e.clientX, e.clientY);
+    });
     window.addEventListener("resize", () => {
       if (!this.doc || !this.fitWidth) return;
       if (this.resizeTimer) clearTimeout(this.resizeTimer);
@@ -143,14 +161,34 @@ export class PdfViewer {
       cMapUrl,
       cMapPacked: true,
       standardFontDataUrl,
-    });
+      password: this.password ?? undefined,
+      onPassword: (callback: (password: string) => void, reason: number) => {
+        if (this.password && reason !== pdfjs.PasswordResponses.INCORRECT_PASSWORD) {
+          callback(this.password);
+          return;
+        }
+        this.password = null;
+        this.pendingPasswordCallback = callback;
+        throw new PasswordRequiredError(
+          reason === pdfjs.PasswordResponses.INCORRECT_PASSWORD
+        );
+      },
+    } as Parameters<typeof pdfjs.getDocument>[0]);
     this.loadingTask = task;
-    const doc = await task.promise;
+    let doc: PDFDocumentProxy;
+    try {
+      doc = await task.promise;
+    } catch (err) {
+      if (err instanceof PasswordRequiredError) throw err;
+      void task.destroy();
+      throw err;
+    }
     if (this.loadingTask !== task) {
       void task.destroy(); // another file was opened meanwhile
       return;
     }
     this.doc = doc;
+    this.password = null;
 
     this.viewer.classList.toggle("double", this.viewMode === "double");
     const metas = await Promise.all(
@@ -193,6 +231,7 @@ export class PdfViewer {
     this.searchToken++;
     this.hits = [];
     this.activeHit = -1;
+    this.detachSplit();
     this.teardownThumbs();
     if (this.loadingTask) {
       void this.loadingTask.destroy();
@@ -334,6 +373,173 @@ export class PdfViewer {
       if (used >= capChars) break;
     }
     return { pages: n, text: parts.join("\n\n") };
+  }
+
+  /* ---------- split view ---------- */
+
+  // The split pane mirrors the main scroll with its own scroll container.
+  attachSplit(pane: HTMLElement, inner: HTMLElement, syncScroll: () => void): void {
+    this.splitPane = pane;
+    void inner;
+    this.splitSync = syncScroll;
+    // caller owns pane contents (the inner container is already attached)
+    this.splitViews.clear();
+    for (const pv of this.pages) {
+      const div = document.createElement("div");
+      div.className = "page-view";
+      const canvas = document.createElement("canvas");
+      div.append(canvas);
+      inner.append(div);
+      this.splitViews.set(pv.index + 1, { div, canvas, rendered: false });
+    }
+    this.renderSplitVisible();
+  }
+
+  detachSplit(): void {
+    if (this.splitPane) this.splitPane.innerHTML = "";
+    this.splitPane = null;
+    this.splitSync = null;
+    this.splitViews.clear();
+  }
+
+  hasSplit(): boolean {
+    return this.splitPane !== null;
+  }
+
+  scrollToSplitRatio(ratio: number): void {
+    if (!this.splitPane) return;
+    const span = this.splitPane.scrollHeight - this.splitPane.clientHeight;
+    this.splitPane.scrollTop = Math.max(0, ratio * span);
+  }
+
+  private renderSplitVisible(): void {
+    if (!this.splitPane || !this.doc) return;
+    const top = this.splitPane.scrollTop;
+    const bottom = top + this.splitPane.clientHeight;
+    const width = this.splitPane.clientWidth - 64;
+    for (const pv of this.pages) {
+      const view = this.splitViews.get(pv.index + 1);
+      if (!view) continue;
+      const scale = width / pv.width;
+      view.div.style.width = `${Math.floor(pv.width * scale)}px`;
+      view.div.style.height = `${Math.floor(pv.height * scale)}px`;
+      const pTop = view.div.offsetTop;
+      const pBottom = pTop + view.div.offsetHeight;
+      const inRange = pBottom >= top - 800 && pTop <= bottom + 800;
+      if (inRange && !view.rendered) {
+        view.rendered = true;
+        void this.doc.getPage(pv.index + 1).then((page) => {
+          const viewport = page.getViewport({ scale });
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          view.canvas.width = Math.max(1, Math.floor(viewport.width * dpr));
+          view.canvas.height = Math.max(1, Math.floor(viewport.height * dpr));
+          view.canvas.style.width = `${Math.floor(viewport.width)}px`;
+          view.canvas.style.height = `${Math.floor(viewport.height)}px`;
+          const ctx = view.canvas.getContext("2d");
+          if (!ctx) return;
+          const transform = dpr === 1 ? undefined : ([dpr, 0, 0, dpr, 0, 0] as [number, number, number, number, number, number]);
+          return page.render({ canvasContext: ctx, viewport, transform }).promise;
+        }).catch(() => {
+          view.rendered = false;
+        });
+      }
+    }
+  }
+
+  /* ---------- user bookmarks ---------- */
+
+  private bookmarks: Array<{ page: number; label: string; created: number }> = [];
+
+  getBookmarks(): Array<{ page: number; label: string; created: number }> {
+    return [...this.bookmarks].sort((a, b) => a.page - b.page || a.created - b.created);
+  }
+
+  toggleBookmark(): "added" | "removed" {
+    const page = this.currentPage;
+    const existing = this.bookmarks.find((b) => b.page === page);
+    if (existing) {
+      this.bookmarks = this.bookmarks.filter((b) => b !== existing);
+      return "removed";
+    }
+    this.bookmarks.push({ page, label: `第 ${page} 页`, created: Math.floor(Date.now() / 1000) });
+    return "added";
+  }
+
+  removeBookmark(page: number): void {
+    this.bookmarks = this.bookmarks.filter((b) => b.page !== page);
+  }
+
+  isBookmarked(page: number): boolean {
+    return this.bookmarks.some((b) => b.page === page);
+  }
+
+  /* ---------- password ---------- */
+
+  hasPendingPassword(): boolean {
+    return this.pendingPasswordCallback !== null;
+  }
+
+  submitPassword(password: string): boolean {
+    const callback = this.pendingPasswordCallback;
+    if (!callback) return false;
+    this.pendingPasswordCallback = null;
+    this.password = password;
+    callback(password);
+    return true;
+  }
+
+  // Prime the password used by the next open() call (retry path).
+  setPassword(password: string): void {
+    this.password = password;
+  }
+
+  /* ---------- link layer ---------- */
+
+  // Click-through for in-document GoTo links and external URLs. Rects live
+  // on top of the text layer, so text selection still wins.
+  private linkLayerHit(clientX: number, clientY: number): void {
+    for (const pv of this.pages) {
+      const rect = pv.div.getBoundingClientRect();
+      if (
+        clientX < rect.left ||
+        clientX > rect.right ||
+        clientY < rect.top ||
+        clientY > rect.bottom
+      ) {
+        continue;
+      }
+      const x = (clientX - rect.left) / this.scale;
+      const y = (clientY - rect.top) / this.scale;
+      void this.doc?.getPage(pv.index + 1).then((page) => {
+        const annotations = page.getAnnotations({ intent: "display" });
+        return annotations.then((items) => {
+          for (const item of items) {
+            if (!item.rect || item.rect.length < 4) continue;
+            const [x1, y1] = pdfjs.Util.applyTransform(
+              [item.rect[0], item.rect[1]],
+              page.getViewport({ scale: this.scale })
+            );
+            const [x2, y2] = pdfjs.Util.applyTransform(
+              [item.rect[2], item.rect[3]],
+              page.getViewport({ scale: this.scale })
+            );
+            const left = Math.min(x1, x2);
+            const right = Math.max(x1, x2);
+            const top = Math.min(y1, y2);
+            const bottom = Math.max(y1, y2);
+            if (x < left || x > right || y < top || y > bottom) continue;
+            if (item.url) {
+              this.events.onLink?.(item.url);
+              return;
+            }
+            if (item.dest) {
+              void this.goToDest(item.dest);
+              return;
+            }
+          }
+        });
+      });
+    }
   }
 
   /* ---------- annotations ---------- */
@@ -660,6 +866,8 @@ export class PdfViewer {
       this.renderScheduled = false;
       this.renderVisible();
       this.updateCurrentPage();
+      this.renderSplitVisible();
+      this.splitSync?.();
     });
   }
 

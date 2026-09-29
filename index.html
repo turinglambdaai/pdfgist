@@ -43,11 +43,17 @@
           </button>
         </div>
         <div class="spacer"></div>
+        <button id="btn-bookmark" class="icon-btn" title="添加/移除书签（当前页）" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 3h12v18l-6-4.5L6 21V3z"/></svg>
+        </button>
         <button id="btn-double" class="icon-btn" title="双页视图" disabled>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 5.5C10.5 4.3 8.4 4 5 4v14c3.4 0 5.5.3 7 1.5 1.5-1.2 3.6-1.5 7-1.5V4c-3.4 0-5.5.3-7 1.5z"/><path d="M12 5.5v14"/></svg>
         </button>
         <button id="btn-print" class="icon-btn" title="打印" disabled>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7" rx="1"/></svg>
+        </button>
+        <button id="btn-split" class="icon-btn" title="拆分视图（同文档两处对照）" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg>
         </button>
         <button id="btn-find" class="icon-btn" title="搜索（Ctrl+F）" disabled>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.8-3.8"/></svg>
@@ -85,9 +91,14 @@
           <div id="panel-view-outline" class="panel-view">
             <nav id="outline-tree"></nav>
             <div id="outline-empty" class="panel-empty hidden">本文档没有目录</div>
+            <div class="bookmarks-block">
+              <div class="bookmarks-title">我的书签 <button id="btn-bookmark-add" class="card-btn" title="书签当前页">＋</button></div>
+              <div id="bookmarks-list"></div>
+            </div>
           </div>
         </aside>
         <div id="viewer-wrap">
+          <div id="split-pane" class="hidden"></div>
           <div id="tab-views"></div>
           <div id="findbar" class="hidden">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.8-3.8"/></svg>
@@ -251,6 +262,17 @@
             </div>
           </section>
         </aside>
+      </div>
+      <div id="password-dialog" class="hidden">
+        <div class="pwd-box">
+          <div class="pwd-title">此 PDF 已加密</div>
+          <div class="pwd-msg" id="pwd-msg">请输入打开密码</div>
+          <input id="pwd-input" type="password" placeholder="密码" autocomplete="off" />
+          <div class="pwd-buttons">
+            <button id="pwd-cancel" class="ghost-btn">取消</button>
+            <button id="pwd-ok" class="accent-btn">打开</button>
+          </div>
+        </div>
       </div>
       <div id="selection-bar" class="hidden">
         <button id="sel-translate">翻译</button>

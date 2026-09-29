@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { el } from "./dom";
-import { PdfViewer } from "./viewer";
+import { PdfViewer, PasswordRequiredError } from "./viewer";
 import { EpubViewer } from "./epub";
 
 type Engine = PdfViewer | EpubViewer;
@@ -15,6 +15,7 @@ import { currentSettings, ensureProviderConfigured, initSettings, saveSettings }
 import type { Annotation, RecentFile } from "./types";
 import { initSidebar, refreshAnnotations, switchTab, translateSelection } from "./sidebar";
 import { initUpdater } from "./updater";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 interface ViewerTab {
   id: string;
@@ -28,6 +29,7 @@ interface ViewerTab {
   saveTimer: ReturnType<typeof setTimeout> | null;
   annotations: Annotation[];
   annoTimer: ReturnType<typeof setTimeout> | null;
+  splitOn: boolean;
 }
 
 const tabs: ViewerTab[] = [];
@@ -37,6 +39,123 @@ let firstDocSeen = false;
 let leftPanelTab: "thumbs" | "outline" = "thumbs";
 
 const THEME_KEY = "pdfgist-theme";
+
+/* ---------- bookmarks ---------- */
+
+function renderBookmarks(pdf: PdfViewer | null): void {
+  const list = el("bookmarks-list");
+  list.innerHTML = "";
+  if (!pdf || !pdf.isOpen) return;
+  const items = pdf.getBookmarks();
+  if (items.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "panel-empty";
+    empty.style.padding = "6px 8px";
+    empty.textContent = "点工具栏书签图标收藏当前页";
+    list.append(empty);
+    return;
+  }
+  for (const b of items) {
+    const item = document.createElement("div");
+    item.className = "bookmark-item";
+    const page = document.createElement("span");
+    page.className = "page-no";
+    page.textContent = `${b.page}`;
+    const label = document.createElement("span");
+    label.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+    label.textContent = b.label;
+    const del = document.createElement("button");
+    del.className = "card-btn";
+    del.textContent = "删";
+    del.title = "删除书签";
+    del.addEventListener("click", (e) => {
+      e.stopPropagation();
+      pdf.removeBookmark(b.page);
+      renderBookmarks(pdf);
+    });
+    item.append(page, label, del);
+    item.addEventListener("click", () => pdf.scrollToPage(b.page));
+    list.append(item);
+  }
+}
+
+function toggleBookmarkActive(): void {
+  const pdf = asPdf(activeViewer());
+  if (!pdf?.isOpen) return;
+  const result = pdf.toggleBookmark();
+  el("btn-bookmark").classList.toggle("active", result === "added");
+  renderBookmarks(pdf);
+}
+
+/* ---------- split view ---------- */
+
+function setSplit(on: boolean): void {
+  const tab = activeTab();
+  const pdf = asPdf(activeViewer());
+  if (!tab || !pdf || !pdf.isOpen) return;
+  tab.splitOn = on;
+  el("btn-split").classList.toggle("active", on);
+  const pane = el("split-pane");
+  if (on) {
+    pane.classList.remove("hidden");
+    const inner = document.createElement("div");
+    inner.className = "viewer-split";
+    pane.innerHTML = "";
+    pane.append(inner);
+    pdf.attachSplit(pane, inner, () => {
+      if (tab.splitOn) {
+        const span = tab.wrap.scrollHeight - tab.wrap.clientHeight;
+        const ratio = span > 0 ? Math.min(1, Math.max(0, tab.wrap.scrollTop / span)) : 0;
+        pdf.scrollToSplitRatio(ratio);
+      }
+    });
+    pdf.scrollToSplitRatio(
+      tab.wrap.scrollTop / Math.max(tab.wrap.scrollHeight - tab.wrap.clientHeight, 1) || 0
+    );
+    el("doc-title").textContent = `SPLIT pane=${pane.clientWidth}x${pane.scrollHeight} kids=${pane.children.length} cls=${pane.className}`;
+  } else {
+    pdf.detachSplit();
+    pane.classList.add("hidden");
+    pane.innerHTML = "";
+  }
+}
+
+/* ---------- password dialog ---------- */
+
+function showPasswordDialog(wrong: boolean, onCancel: () => void, onOk: (pwd: string) => void): void {
+  const dialog = el("password-dialog");
+  const msg = el("pwd-msg");
+  const input = el("pwd-input") as HTMLInputElement;
+  msg.textContent = wrong ? "密码错误，请重试" : "请输入打开密码";
+  msg.classList.toggle("error", wrong);
+  input.value = "";
+  dialog.classList.remove("hidden");
+  input.focus();
+  const close = (): void => {
+    dialog.classList.add("hidden");
+    el("pwd-ok").removeEventListener("click", onOkHandler);
+    el("pwd-cancel").removeEventListener("click", onCancelHandler);
+    input.removeEventListener("keydown", onKey);
+  };
+  const submit = (): void => {
+    const value = input.value;
+    if (!value) return;
+    close();
+    onOk(value);
+  };
+  const onOkHandler = (): void => submit();
+  const onCancelHandler = (): void => {
+    close();
+    onCancel();
+  };
+  const onKey = (e: KeyboardEvent): void => {
+    if (e.key === "Enter") submit();
+    else if (e.key === "Escape") onCancelHandler();
+  };
+  el("pwd-ok").addEventListener("click", onOkHandler);
+  el("pwd-cancel").addEventListener("click", onCancelHandler);
+  input.addEventListener("keydown", onKey);
+}
 
 function activeTab(): ViewerTab | undefined {
   return tabs.find((t) => t.id === activeTabId);
@@ -64,6 +183,8 @@ function setToolbarEnabled(enabled: boolean): void {
     "btn-find",
     "btn-print",
     "btn-double",
+    "btn-bookmark",
+    "btn-split",
   ]) {
     (el(id) as HTMLButtonElement).disabled = !enabled;
   }
@@ -149,6 +270,10 @@ function refreshChrome(): void {
   tab.engine.updateActiveThumb();
   (el("btn-double") as HTMLButtonElement).disabled = tab.kind === "epub";
   (el("btn-print") as HTMLButtonElement).disabled = tab.kind === "epub";
+  const pdf = asPdf(tab.engine);
+  const bookmarked = pdf?.isBookmarked(tab.engine.currentPageNumber()) ?? false;
+  el("btn-bookmark").classList.toggle("active", bookmarked);
+  renderBookmarks(pdf);
   if (tab.kind === "pdf") {
     void buildOutline(asPdf(tab.engine));
     asPdf(tab.engine)?.buildThumbnails(el("thumbs-grid"));
@@ -181,12 +306,47 @@ function buildEpubOutline(engine: EpubViewer): void {
   }
 }
 
+async function openPdfWithPassword(
+  buf: ArrayBuffer,
+  title: string,
+  path: string | null,
+  resume: RecentFile | null,
+  wrong = false
+): Promise<void> {
+  try {
+    await createTab(buf, title, path, resume, "pdf");
+  } catch (err) {
+    if (err instanceof PasswordRequiredError) {
+      showPasswordDialog(
+        wrong || err.retry,
+        () => {},
+        (pwd) => {
+          void (async () => {
+            try {
+              await createTab(buf, title, path, resume, "pdf", pwd);
+            } catch (retryErr) {
+              if (retryErr instanceof PasswordRequiredError) {
+                await openPdfWithPassword(buf, title, path, resume, true);
+              } else {
+                alert(`打开失败：${retryErr}`);
+              }
+            }
+          })();
+        }
+      );
+      return;
+    }
+    throw err;
+  }
+}
+
 async function createTab(
   buf: ArrayBuffer,
   title: string,
   path: string | null,
   resume: RecentFile | null,
-  kind: "pdf" | "epub"
+  kind: "pdf" | "epub",
+  password?: string
 ): Promise<void> {
   const id = `tab-${Date.now().toString(36)}-${tabSeq++}`;
   const wrap = document.createElement("div");
@@ -197,7 +357,10 @@ async function createTab(
   el("tab-views").append(wrap);
   const engine: Engine =
     kind === "epub" ? new EpubViewer(wrap, inner) : new PdfViewer(wrap, inner);
-  if (engine instanceof PdfViewer) engine.setViewMode(currentSettings().view_mode);
+  if (engine instanceof PdfViewer) {
+    engine.setViewMode(currentSettings().view_mode);
+    if (password) engine.setPassword(password);
+  }
   if (engine instanceof EpubViewer) {
     engine.setTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light");
   }
@@ -213,6 +376,7 @@ async function createTab(
     saveTimer: null,
     annotations: [],
     annoTimer: null,
+    splitOn: false,
   };
   if (path) {
     void invoke<Annotation[]>("load_annotations", { path })
@@ -227,6 +391,7 @@ async function createTab(
 
   engine.events.onDocLoaded = (info) => {
     tab.pages = info.pages;
+    if (tab.kind === "epub") (engine as EpubViewer).attachLinkHandler();
     if (!firstDocSeen) {
       firstDocSeen = true;
       showLeftPanel(leftPanelTab);
@@ -238,6 +403,8 @@ async function createTab(
   engine.events.onPageChange = (page) => {
     if (activeTabId === id) {
       (el("page-input") as HTMLInputElement).value = String(page);
+      const pdf = asPdf(engine);
+      el("btn-bookmark").classList.toggle("active", pdf?.isBookmarked(page) ?? false);
       if (tab.kind === "pdf" && el("left-panel").classList.contains("hidden") === false) {
         asPdf(engine)?.scrollToThumb();
       }
@@ -251,6 +418,9 @@ async function createTab(
     }
   };
   wrap.addEventListener("scroll", () => queueRecentSave(tab));
+  engine.events.onLink = (url: string) => {
+    void openUrl(url).catch((err) => alert(`无法打开链接：${err}`));
+  };
 
   tabs.push(tab);
   activateTab(id);
@@ -330,7 +500,11 @@ async function openPath(path: string, resume?: RecentFile): Promise<void> {
   try {
     const buf = await invoke<ArrayBuffer>("read_pdf", { path });
     const kind: "pdf" | "epub" = /\.epub$/i.test(path) ? "epub" : "pdf";
-    await createTab(buf, basename(path), path, resume ?? null, kind);
+    if (kind === "pdf") {
+      await openPdfWithPassword(buf, basename(path), path, resume ?? null);
+    } else {
+      await createTab(buf, basename(path), path, resume ?? null, kind);
+    }
   } catch (err) {
     alert(`打开失败：${err}`);
   }
@@ -731,6 +905,12 @@ function initToolbar(): void {
     el("btn-sidebar").classList.toggle("active", !hidden);
   });
   el("btn-print").addEventListener("click", () => void printActive());
+  el("btn-bookmark").addEventListener("click", toggleBookmarkActive);
+  el("btn-bookmark-add").addEventListener("click", toggleBookmarkActive);
+  el("btn-split").addEventListener("click", () => {
+    const tab = activeTab();
+    if (tab) setSplit(!tab.splitOn);
+  });
   el("btn-double").addEventListener("click", () => {
     const s = currentSettings();
     s.view_mode = s.view_mode === "double" ? "single" : "double";
@@ -764,6 +944,10 @@ function initKeyboard(): void {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
       e.preventDefault();
       if (activeViewer()?.isOpen) openFindbar();
+      return;
+    }
+    if (!typing && e.key.toLowerCase() === "b" && !e.ctrlKey && !e.metaKey) {
+      toggleBookmarkActive();
       return;
     }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "w") {

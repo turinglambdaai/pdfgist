@@ -17,6 +17,7 @@ export interface EpubEvents {
   onDocLoaded?: (info: { pages: number; title: string }) => void;
   onPageChange?: (chapter: number) => void;
   onZoom?: (scale: number) => void;
+  onLink?: (url: string) => void;
 }
 
 const READING_CSS = `
@@ -506,6 +507,30 @@ export class EpubViewer {
   }
 
   /* ---------- internal ---------- */
+
+  // In-book links jump within the continuous scroll; external URLs are
+  // reported via onLink. Call once after all chapters are loaded.
+  attachLinkHandler(): void {
+    for (const frame of this.frames) {
+      const doc = frame.contentDocument;
+      if (!doc) continue;
+      doc.body.addEventListener("click", (e) => {
+        const anchor = (e.target as HTMLElement | null)?.closest("a");
+        if (!anchor) return;
+        const href = anchor.getAttribute("href");
+        if (!href) return;
+        e.preventDefault();
+        if (/^(https?:)?\/\//.test(href)) {
+          this.events.onLink?.(href);
+          return;
+        }
+        const base = new URL(href, "https://book.local/");
+        const file = base.pathname.replace(/^\//, "");
+        const idx = this.spine.findIndex((sp) => sp.endsWith(file));
+        if (idx !== -1) this.scrollToPage(idx + 1);
+      });
+    }
+  }
 
   private updateCurrentChapter(): void {
     const line = this.container.scrollTop + this.container.clientHeight * 0.35;

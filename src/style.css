@@ -389,11 +389,21 @@ select:focus-visible {
   position: relative;
   background: var(--bg);
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+#split-pane {
+  flex: 0 0 auto;
+  max-height: 46%;
+  position: relative;
+  z-index: 5;
 }
 
 #tab-views {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  flex: 1;
+  min-height: 0;
 }
 
 .tab-view {
@@ -1711,6 +1721,149 @@ body.panel-resizing {
   width: 15px;
   height: 15px;
   accent-color: var(--accent);
+}
+
+/* ---------- split view ---------- */
+
+#split-pane {
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  overflow: auto;
+  flex-shrink: 0;
+}
+
+#split-pane .viewer-split {
+  padding: 16px 0 32px;
+}
+
+#split-pane .page-view canvas {
+  display: block;
+  border-radius: 2px;
+}
+
+:root[data-theme="dark"].page-invert #split-pane .page-view canvas {
+  filter: invert(0.92) hue-rotate(180deg);
+}
+
+/* ---------- bookmarks ---------- */
+
+.bookmarks-block {
+  margin-top: 18px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.bookmarks-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px 6px;
+}
+
+.bookmark-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+
+.bookmark-item:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.bookmark-item .page-no {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  flex: 1;
+}
+
+.bookmark-item .card-btn {
+  visibility: hidden;
+}
+
+.bookmark-item:hover .card-btn {
+  visibility: visible;
+}
+
+#btn-bookmark.active {
+  color: var(--accent);
+}
+
+#btn-bookmark.active svg {
+  fill: var(--accent);
+}
+
+/* ---------- password dialog ---------- */
+
+#password-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: rgba(28, 25, 23, 0.45);
+}
+
+#password-dialog.hidden {
+  display: none !important;
+}
+
+.pwd-box {
+  width: 340px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pwd-title {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.pwd-msg {
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+
+.pwd-msg.error {
+  color: var(--danger);
+}
+
+#pwd-input {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 13px;
+  background: var(--panel);
+  color: var(--text);
+  font-family: var(--font);
+}
+
+#pwd-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.pwd-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 /* ---------- print ---------- */

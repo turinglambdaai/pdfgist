@@ -5,6 +5,17 @@ All notable changes to PDFGist are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-09-29
+
+Adobe-grade reading details.
+
+### Added
+
+- In-document links: internal GoTo links jump to their target, external URLs open in the default browser
+- User bookmarks: flag the current page from the toolbar (Ctrl+B), listed under the outline with jump/delete; persisted per file with annotations
+- Encrypted PDFs: a password prompt opens protected documents, with retry on wrong passwords
+- Split view: the same document in two synchronized panes for side-by-side reading (toolbar toggle), with lazy rendering in both panes
+
 ## [0.7.3] — 2026-09-29
 
 ### Added
@@ -148,7 +159,8 @@ First release.
 - Cancellable LLM streams (per-request cancellation tokens in the Rust backend)
 - CJK-ready text extraction (PDF.js cmaps and standard fonts bundled)
 
-[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.7.3...HEAD
+[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.8.0
 [0.7.3]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.7.3
 [0.7.2]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.7.2
 [0.7.1]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.7.1
