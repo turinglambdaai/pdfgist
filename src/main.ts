@@ -260,11 +260,13 @@ function refreshChrome(): void {
   if (!tab) {
     el("doc-title").textContent = "";
     el("page-total").textContent = "–";
+    el("doc-pages-info").textContent = "";
     (el("page-input") as HTMLInputElement).value = "–";
     return;
   }
   el("doc-title").textContent = tab.title;
   el("page-total").textContent = String(tab.pages || "–");
+  el("doc-pages-info").textContent = tab.kind === "epub" ? `EPUB · ${tab.pages} 章` : `PDF · ${tab.pages} 页`;
   (el("page-input") as HTMLInputElement).value = tab.engine.currentPageNumber().toString();
   (el("btn-zoom-reset") as HTMLButtonElement).textContent = `${Math.round(tab.engine.getScale() * 100)}%`;
   tab.engine.updateActiveThumb();

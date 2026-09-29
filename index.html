@@ -17,32 +17,6 @@
         </button>
         <span id="doc-title" class="doc-title"></span>
         <div class="spacer"></div>
-        <div class="tool-group">
-          <button id="btn-prev" class="icon-btn" title="上一页" disabled>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
-          </button>
-          <span class="page-box">
-            <input id="page-input" class="page-input" value="–" disabled spellcheck="false" />
-            <span class="page-total">/ <span id="page-total">–</span></span>
-          </span>
-          <button id="btn-next" class="icon-btn" title="下一页" disabled>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
-          </button>
-        </div>
-        <div class="tool-sep"></div>
-        <div class="tool-group">
-          <button id="btn-zoom-out" class="icon-btn" title="缩小" disabled>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 12h14"/></svg>
-          </button>
-          <button id="btn-zoom-reset" class="zoom-label" title="重置缩放" disabled>100%</button>
-          <button id="btn-zoom-in" class="icon-btn" title="放大" disabled>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-          </button>
-          <button id="btn-fit" class="icon-btn" title="适应宽度" disabled>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/></svg>
-          </button>
-        </div>
-        <div class="spacer"></div>
         <button id="btn-bookmark" class="icon-btn" title="添加/移除书签（当前页）" disabled>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 3h12v18l-6-4.5L6 21V3z"/></svg>
         </button>
@@ -275,6 +249,35 @@
           </div>
         </div>
       </div>
+      <footer id="statusbar">
+        <div class="status-group">
+          <button id="btn-prev" class="icon-btn" title="上一页" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+          </button>
+          <span class="page-box">
+            <input id="page-input" class="page-input" value="–" disabled spellcheck="false" />
+            <span class="page-total">/ <span id="page-total">–</span></span>
+          </span>
+          <button id="btn-next" class="icon-btn" title="下一页" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+        <div class="spacer"></div>
+        <span id="doc-pages-info" class="doc-pages-info"></span>
+        <div class="spacer"></div>
+        <div class="status-group">
+          <button id="btn-zoom-out" class="icon-btn" title="缩小" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 12h14"/></svg>
+          </button>
+          <button id="btn-zoom-reset" class="zoom-label" title="重置缩放" disabled>100%</button>
+          <button id="btn-zoom-in" class="icon-btn" title="放大" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+          <button id="btn-fit" class="icon-btn" title="适应宽度" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/></svg>
+          </button>
+        </div>
+      </footer>
       <div id="selection-bar" class="hidden">
         <button id="sel-translate">翻译</button>
         <span class="bar-sep"></span>

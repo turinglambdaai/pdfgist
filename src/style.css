@@ -1842,6 +1842,51 @@ body.panel-resizing {
   justify-content: flex-end;
 }
 
+/* ---------- status bar (page nav + zoom, Adobe-style) ---------- */
+
+#statusbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+#statusbar .icon-btn {
+  height: 26px;
+  min-width: 26px;
+}
+
+#statusbar .icon-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+#statusbar .page-input {
+  width: 34px;
+  font-size: 12px;
+  padding: 2px 2px;
+}
+
+#statusbar .page-total {
+  font-size: 12px;
+}
+
+#statusbar .zoom-label {
+  min-width: 44px;
+  font-size: 11.5px;
+  padding: 3px 0;
+}
+
+.doc-pages-info {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------- print ---------- */
 
 @media print {

@@ -5,6 +5,12 @@ All notable changes to PDFGist are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.8.2] — 2026-09-29
+
+### Changed
+
+- Layout follows the reader-industry convention: page navigation and zoom moved from the top toolbar to a slim bottom status bar (page box on the left, zoom on the right, document info in between). The top toolbar now carries only document-level actions — 8 buttons instead of 13
+
 ## [0.8.1] — 2026-09-29
 
 ### Added
@@ -169,7 +175,8 @@ First release.
 - Cancellable LLM streams (per-request cancellation tokens in the Rust backend)
 - CJK-ready text extraction (PDF.js cmaps and standard fonts bundled)
 
-[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.8.2
 [0.8.1]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.8.1
 [0.8.0]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.8.0
 [0.7.3]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.7.3
