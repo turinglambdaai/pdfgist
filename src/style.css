@@ -1689,6 +1689,30 @@ body.panel-resizing {
   border-color: var(--accent);
 }
 
+/* ---------- optional night reading: invert PDF page content ---------- */
+
+:root[data-theme="dark"].page-invert .page-view canvas,
+:root[data-theme="dark"].page-invert .thumb canvas {
+  filter: invert(0.92) hue-rotate(180deg);
+}
+
+:root[data-theme="dark"].page-invert .page-view {
+  background: #111214;
+}
+
+.check-label {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px;
+}
+
+.check-label input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+}
+
 /* ---------- print ---------- */
 
 @media print {

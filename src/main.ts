@@ -425,6 +425,14 @@ function applyTheme(): void {
   }
 }
 
+const PAGE_INVERT_KEY = "pdfgist-page-invert";
+
+function applyPageInvert(): void {
+  const on = localStorage.getItem(PAGE_INVERT_KEY) === "1";
+  document.documentElement.classList.toggle("page-invert", on);
+  (el("page-invert") as HTMLInputElement).checked = on;
+}
+
 function initTheme(): void {
   applyTheme();
   const select = el("theme-mode") as HTMLSelectElement;
@@ -440,6 +448,11 @@ function initTheme(): void {
   select.addEventListener("change", () => {
     localStorage.setItem(THEME_KEY, select.value);
     applyTheme();
+  });
+  applyPageInvert();
+  (el("page-invert") as HTMLInputElement).addEventListener("change", (e) => {
+    localStorage.setItem(PAGE_INVERT_KEY, (e.target as HTMLInputElement).checked ? "1" : "0");
+    applyPageInvert();
   });
 }
 

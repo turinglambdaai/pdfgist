@@ -5,6 +5,12 @@ All notable changes to PDFGist are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.7.3] — 2026-09-29
+
+### Added
+
+- Optional night reading: a "深色模式下反转页面颜色" toggle in Settings → 通用 inverts PDF page content (pages become dark with light text, thumbnails follow) while dark mode is active. Off by default — dark mode still only darkens the chrome unless enabled, and EPUB keeps its native dark colors.
+
 ## [0.7.2] — 2026-09-29
 
 ### Fixed
@@ -142,7 +148,8 @@ First release.
 - Cancellable LLM streams (per-request cancellation tokens in the Rust backend)
 - CJK-ready text extraction (PDF.js cmaps and standard fonts bundled)
 
-[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.7.2...HEAD
+[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.7.3...HEAD
+[0.7.3]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.7.3
 [0.7.2]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.7.2
 [0.7.1]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.7.1
 [0.7.0]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.7.0
