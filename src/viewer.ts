@@ -279,16 +279,32 @@ export class PdfViewer {
     }
   }
 
-  async goToDest(dest: string | readonly unknown[] | null): Promise<void> {
-    if (!this.doc) return;
+  // Returns false when the destination cannot be resolved (missing named
+  // target, external link) so the UI can tell the document issue from ours.
+  async goToDest(dest: string | readonly unknown[] | null): Promise<boolean> {
+    if (!this.doc) return false;
     let d = dest;
-    if (typeof d === "string") d = await this.doc.getDestination(d);
-    if (!Array.isArray(d) || d.length === 0) return;
+    if (typeof d === "string") {
+      try {
+        d = await this.doc.getDestination(d);
+      } catch (err) {
+        console.error("outline dest resolution failed", err);
+        return false;
+      }
+    }
+    if (!Array.isArray(d) || d.length === 0) return false;
+    if (typeof d[0] === "number") {
+      // some producers write a 0-based page number instead of a page reference
+      this.scrollToPage(Math.max(1, d[0] + 1));
+      return true;
+    }
     try {
       const index = await this.doc.getPageIndex(d[0] as Parameters<PDFDocumentProxy["getPageIndex"]>[0]);
       this.scrollToPage(index + 1);
-    } catch {
-      // unresolvable destination (e.g. remote goto) — ignore
+      return true;
+    } catch (err) {
+      console.error("outline jump failed", err);
+      return false;
     }
   }
 

@@ -378,13 +378,33 @@ async function buildOutline(viewer: PdfViewer | null): Promise<void> {
       const node = document.createElement("div");
       node.className = "outline-item";
       node.style.paddingLeft = `${8 + depth * 14}px`;
-      node.textContent = item.title || "（未命名）";
-      node.addEventListener("click", () => void viewer.goToDest(item.dest));
+      if (item.url) {
+        node.textContent = `${item.title || "（未命名）"} ↗`;
+        node.title = "外部链接，暂不支持跳转";
+        node.classList.add("outline-item-ext");
+      } else {
+        node.textContent = item.title || "（未命名）";
+        node.addEventListener("click", () => {
+          void viewer.goToDest(item.dest).then((ok) => {
+            if (!ok) showOutlineNotice("该条目无法跳转：文档目标缺失或指向外部");
+          });
+        });
+      }
       tree.append(node);
       if (item.items?.length) renderItems(item.items, depth + 1);
     }
   };
   renderItems(outline, 0);
+}
+
+function showOutlineNotice(message: string): void {
+  const notice = el("outline-empty");
+  notice.textContent = message;
+  notice.classList.remove("hidden");
+  setTimeout(() => {
+    notice.textContent = "本文档没有目录";
+    notice.classList.add("hidden");
+  }, 3000);
 }
 
 /* ---------- theme ---------- */

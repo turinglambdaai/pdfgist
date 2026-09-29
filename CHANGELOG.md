@@ -5,6 +5,12 @@ All notable changes to PDFGist are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.7.2] — 2026-09-29
+
+### Fixed
+
+- Outline jumps are more robust: destinations written as a 0-based page number (some producers) now jump correctly, and unresolvable entries no longer fail silently — the outline panel shows "该条目无法跳转" instead
+
 ## [0.7.1] — 2026-09-29
 
 A guided installer and a system-following theme.
@@ -136,7 +142,8 @@ First release.
 - Cancellable LLM streams (per-request cancellation tokens in the Rust backend)
 - CJK-ready text extraction (PDF.js cmaps and standard fonts bundled)
 
-[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/turinglambdaai/pdfgist/compare/v0.7.2...HEAD
+[0.7.2]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.7.2
 [0.7.1]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.7.1
 [0.7.0]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.7.0
 [0.6.1]: https://github.com/turinglambdaai/pdfgist/releases/tag/v0.6.1
