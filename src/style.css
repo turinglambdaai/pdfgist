@@ -621,6 +621,11 @@ select:focus-visible {
   border-radius: 2px;
 }
 
+.hit.word-sel {
+  background: rgba(47, 111, 237, 0.3);
+  box-shadow: 0 0 0 1.5px rgba(47, 111, 237, 0.6);
+}
+
 .hit-active {
   background: var(--hit-active);
   box-shadow: 0 0 0 1.5px rgba(217, 119, 87, 0.8);

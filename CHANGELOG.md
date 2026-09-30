@@ -5,6 +5,12 @@ All notable changes to PDFGist are documented here. Format follows
 
 ## [Unreleased]
 
+## [1.2.1] — 2026-09-30
+
+### Fixed
+
+- Double-click word selection now computes word boundaries directly from PDF text item geometry instead of relying on the transparent text layer — the font-metric drift between the two (sans-serif overlay vs embedded serif glyphs) no longer clips leading letters like the "c" in "configuration". Selection is shown as precise overlay boxes and feeds the floating translate bar exactly
+
 ## [1.2.0] — 2026-09-30
 
 Page management and light editing.

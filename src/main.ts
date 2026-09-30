@@ -1519,6 +1519,23 @@ async function init(): Promise<void> {
       activateFormTab();
     }
   });
+  el("viewer-wrap").addEventListener("dblclick", (e: MouseEvent) => {
+    const pdf = asPdf(activeViewer());
+    if (!pdf) return;
+    void (async () => {
+      const word = await pdf.getWordAt(e.clientX, e.clientY);
+      if (!word || !word.text) {
+        pdf.clearWordOverlay();
+        return;
+      }
+      pdf.showWordOverlay(word.page, word.rects);
+      pendingSelection = word.text;
+      const bar = el("selection-bar");
+      bar.style.left = `${Math.min(Math.max(e.clientX - 52, 8), window.innerWidth - 130)}px`;
+      bar.style.top = `${Math.max(e.clientY - 50, 8)}px`;
+      bar.classList.remove("hidden");
+    })();
+  });
   setToolbarEnabled(false);
   el("btn-double").classList.toggle("active", currentSettings().view_mode === "double");
   refreshChrome();

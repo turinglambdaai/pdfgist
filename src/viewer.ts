@@ -163,6 +163,7 @@ export class PdfViewer {
       cMapUrl,
       cMapPacked: true,
       standardFontDataUrl,
+      disableFontFace: true,
       password: this.password ?? undefined,
       onPassword: (callback: (password: string) => void, reason: number) => {
         if (this.password && reason !== pdfjs.PasswordResponses.INCORRECT_PASSWORD) {
@@ -540,6 +541,96 @@ export class PdfViewer {
       }
     }
     return out;
+  }
+
+  /* ---------- double-click word selection (exact, via text items) ---------- */
+
+  private wordOverlay: HTMLDivElement[] = [];
+
+  clearWordOverlay(): void {
+    for (const div of this.wordOverlay) div.remove();
+    this.wordOverlay = [];
+  }
+
+  // Computes the word under the viewport point directly from text item
+  // geometry (bypassing text-layer font metrics), returning the word text
+  // plus page-space rects for highlighting.
+  async getWordAt(clientX: number, clientY: number): Promise<{ text: string; page: number; rects: Array<{ x: number; y: number; width: number; height: number }> } | null> {
+    if (!this.doc) return null;
+    for (const pv of this.pages) {
+      const divRect = pv.div.getBoundingClientRect();
+      if (
+        clientY < divRect.top ||
+        clientY > divRect.bottom ||
+        clientX < divRect.left ||
+        clientX > divRect.right
+      ) {
+        continue;
+      }
+      const page = await this.doc.getPage(pv.index + 1);
+      const viewport = this.viewportFor(page, this.scale);
+      const content = await this.ensureTextItems(pv);
+      const xLocal = clientX - divRect.left;
+      const yLocal = clientY - divRect.top;
+      for (const item of content.items) {
+        if (!("str" in item) || !item.str.trim()) continue;
+        const tx = pdfjs.Util.transform(viewport.transform, item.transform);
+        const fontHeight = Math.hypot(tx[2], tx[3]);
+        const width = item.width * this.scale;
+        const left = tx[4];
+        const top = tx[5] - fontHeight;
+        if (
+          yLocal < top - fontHeight * 0.5 ||
+          yLocal > top + fontHeight * 1.5 ||
+          xLocal < left - 4 ||
+          xLocal > left + width + 4
+        ) {
+          continue;
+        }
+        const charW = width / Math.max(item.str.length, 1);
+        let idx = Math.floor((xLocal - left) / charW);
+        idx = Math.max(0, Math.min(item.str.length - 1, idx));
+        // expand to word boundaries within the item
+        const str = item.str;
+        const isWordChar = (ch: string) => /[A-Za-z0-9À-ɏͰ-ϿЀ-ӿ一-鿿぀-ヿ]/.test(ch);
+        if (!isWordChar(str[idx])) {
+          let k = idx;
+          while (k < str.length && !isWordChar(str[k])) k += 1;
+          if (k < str.length) idx = k;
+        }
+        let start = idx;
+        let end = idx + 1;
+        while (start > 0 && isWordChar(str[start - 1])) start -= 1;
+        while (end < str.length && isWordChar(str[end])) end += 1;
+        const word = str.slice(start, end);
+        const rects = [
+          {
+            x: left + charW * start,
+            y: top,
+            width: charW * (end - start),
+            height: fontHeight,
+          },
+        ];
+        return { text: word, page: pv.index + 1, rects };
+      }
+    }
+    return null;
+  }
+
+  showWordOverlay(page: number, rects: Array<{ x: number; y: number; width: number; height: number }>): void {
+    this.clearWordOverlay();
+    const pv = this.pages[page - 1];
+    if (!pv) return;
+    for (const r of rects) {
+      const div = document.createElement("div");
+      div.className = "hit word-sel";
+      div.style.left = `${r.x * this.scale}px`;
+      div.style.top = `${r.y * this.scale}px`;
+      div.style.width = `${r.width * this.scale}px`;
+      div.style.height = `${r.height * this.scale}px`;
+      pv.highlightLayer.append(div);
+      this.wordOverlay.push(div);
+    }
   }
 
   /* ---------- password ---------- */
