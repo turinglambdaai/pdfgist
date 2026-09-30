@@ -5,6 +5,17 @@ All notable changes to PDFGist are documented here. Format follows
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-09-30
+
+Page management and light editing.
+
+### Added
+
+- Page management via the thumbnails panel: multi-select pages, then 删除 / 旋转(+90°, persisted) / 提取为 PDF / 插入空白页 / 合并其他 PDF 到文末 — every operation applies instantly through a pdf-lib pipeline and reloads the viewer in place
+- Text boxes: 点击页面放置文本, session preview overlays, baked into the export
+- Watermark: diagonal text watermark (CJK-capable via system SimHei, falls back to Helvetica) baked on export
+- 导出编辑版 button bakes text boxes + watermark into a saved copy
+
 ## [1.1.0] — 2026-09-30
 
 Forms and richer annotations.

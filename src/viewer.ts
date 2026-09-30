@@ -875,8 +875,20 @@ export class PdfViewer {
 
   /* ---------- thumbnails ---------- */
 
-  buildThumbnails(container: HTMLElement): void {
+  private thumbSelection = new Set<number>(); // 1-based pages
+
+  getSelectedPages(): number[] {
+    return [...this.thumbSelection].sort((a, b) => a - b);
+  }
+
+  clearThumbSelection(): void {
+    this.thumbSelection.clear();
+    for (const view of this.thumbs) view.div.classList.remove("checked");
+  }
+
+  buildThumbnails(container: HTMLElement, selectable = false): void {
     this.teardownThumbs();
+    this.thumbSelection.clear();
     if (!this.doc) return;
     container.innerHTML = "";
     this.thumbObserver = new IntersectionObserver(
@@ -899,6 +911,19 @@ export class PdfViewer {
       label.className = "thumb-label";
       label.textContent = String(pv.index + 1);
       div.append(canvas, label);
+      if (selectable) {
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.className = "thumb-check";
+        cb.title = "选择页面";
+        cb.addEventListener("click", (e) => e.stopPropagation());
+        cb.addEventListener("change", () => {
+          if (cb.checked) this.thumbSelection.add(pv.index + 1);
+          else this.thumbSelection.delete(pv.index + 1);
+          div.classList.toggle("checked", cb.checked);
+        });
+        div.append(cb);
+      }
       div.addEventListener("click", () => this.scrollToPage(pv.index + 1));
       container.append(div);
       const view: ThumbView = { page: pv.index + 1, div, canvas, rendered: false };

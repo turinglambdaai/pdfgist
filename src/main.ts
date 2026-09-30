@@ -15,6 +15,7 @@ import { currentSettings, ensureProviderConfigured, initSettings, saveSettings }
 import type { Annotation, AnnotationKind, Bookmark, RecentFile } from "./types";
 import { initSidebar, refreshAnnotations, switchTab, translateSelection } from "./sidebar";
 import { initUpdater } from "./updater";
+import { bakeText, type TextBoxMark } from "./editor";
 import { activateFormTab, initFormTab, onFormContextChanged, reloadFormFields, resetFormCache } from "./forms";
 import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -34,6 +35,9 @@ interface ViewerTab {
   annoTimer: ReturnType<typeof setTimeout> | null;
   dataTimer: ReturnType<typeof setTimeout> | null;
   splitOn: boolean;
+  sourceBytes: ArrayBuffer | null;
+  textBoxes: TextBoxMark[];
+  placingText: boolean;
 }
 
 const tabs: ViewerTab[] = [];
@@ -44,6 +48,155 @@ let firstDocSeen = false;
 let leftPanelTab: "thumbs" | "outline" = "thumbs";
 
 const THEME_KEY = "pdfgist-theme";
+
+/* ---------- page editing pipeline ---------- */
+
+function copyOf(buf: ArrayBuffer): ArrayBuffer {
+  return buf.slice(0);
+}
+
+async function applyPageEdit(
+  fn: (bytes: ArrayBuffer) => Promise<Uint8Array>,
+  keepPage: number | null
+): Promise<boolean> {
+  const tab = activeTab();
+  const pdf = asPdf(tab?.engine ?? null);
+  if (!tab || !pdf || !tab.sourceBytes) {
+    alert("该文档不支持页面编辑");
+    return false;
+  }
+  try {
+    const out = await fn(copyOf(tab.sourceBytes));
+    const ab = out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength) as ArrayBuffer;
+    tab.sourceBytes = ab;
+    const page = keepPage ?? pdf.currentPageNumber();
+    await pdf.open(ab.slice(0), tab.title);
+    pdf.scrollToPage(Math.min(page, pdf.getDocPages()));
+    renderBookmarks(pdf);
+    return true;
+  } catch (err) {
+    alert(`操作失败：${err}`);
+    return false;
+  }
+}
+
+function selectedOrCurrent(): number[] {
+  const pdf = asPdf(activeViewer());
+  if (!pdf) return [];
+  const sel = pdf.getSelectedPages();
+  return sel.length > 0 ? sel : [pdf.currentPageNumber()];
+}
+
+/* ---------- text boxes (session marks, baked on export) ---------- */
+
+let placingText = false;
+
+function startPlacingText(): void {
+  const tab = activeTab();
+  if (tab?.kind !== "pdf" || !tab.engine.isOpen) return;
+  placingText = true;
+  el("viewer-wrap").style.cursor = "crosshair";
+  el("doc-title").textContent = `${tab.title} — 点击页面放置文本`;
+}
+
+function stopPlacingText(): void {
+  placingText = false;
+  el("viewer-wrap").style.cursor = "";
+  const tab = activeTab();
+  if (tab) el("doc-title").textContent = tab.title;
+}
+
+function showTextInput(page: number, xRatio: number, yRatio: number): void {
+  const dialog = el("text-dialog");
+  const input = el("text-input") as HTMLInputElement;
+  input.value = "";
+  dialog.dataset.page = String(page);
+  dialog.dataset.xr = String(xRatio);
+  dialog.dataset.yr = String(yRatio);
+  dialog.classList.remove("hidden");
+  input.focus();
+}
+
+function commitTextInput(): void {
+  const dialog = el("text-dialog");
+  const input = el("text-input") as HTMLInputElement;
+  const text = input.value.trim();
+  const page = Number(dialog.dataset.page);
+  const xRatio = Number(dialog.dataset.xr);
+  const yRatio = Number(dialog.dataset.yr);
+  dialog.classList.add("hidden");
+  if (!text) return;
+  const tab = activeTab();
+  if (!tab) return;
+  const mark: TextBoxMark = {
+    page,
+    xRatio,
+    yRatio,
+    text,
+    size: Math.max(12, Math.round(18 * (asPdf(tab.engine)?.getScale() ?? 1))),
+  };
+  tab.textBoxes.push(mark);
+  drawTextBoxPreview(mark);
+}
+
+function drawTextBoxPreview(mark: TextBoxMark): void {
+  const pageEl = el("viewer-wrap").querySelectorAll(".page-view")[mark.page - 1] as HTMLElement | undefined;
+  if (!pageEl) return;
+  const span = document.createElement("span");
+  span.className = "text-box-preview";
+  span.textContent = mark.text;
+  span.style.fontSize = `${mark.size}px`;
+  span.style.left = `${mark.xRatio * pageEl.clientWidth}px`;
+  span.style.top = `${mark.yRatio * pageEl.clientHeight}px`;
+  pageEl.append(span);
+}
+
+/* ---------- watermark ---------- */
+
+function bakeAndExport(): void {
+  const tab = activeTab();
+  const pdf = asPdf(activeViewer());
+  if (!tab || !pdf || !tab.sourceBytes) {
+    alert("该文档不支持导出编辑版");
+    return;
+  }
+  const wm = (el("watermark-text") as HTMLInputElement).value.trim();
+  void (async () => {
+    try {
+      const fontBytes = await invoke<Uint8Array | null>("read_pdf", {
+        path: "C:\\Windows\\Fonts\\simhei.ttf",
+      }).catch(() => null);
+      const out = await bakeText(
+        copyOf(tab.sourceBytes!),
+        tab.textBoxes,
+        wm ? { text: wm, size: 52, opacity: 0.22 } : null,
+        async () => (fontBytes ? new Uint8Array(fontBytes) : null)
+      );
+      const ab = out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength) as ArrayBuffer;
+      const path = await (await import("@tauri-apps/plugin-dialog")).save({
+        defaultPath: `${(tab.title ?? "document").replace(/\.pdf$/i, "")}-编辑版.pdf`,
+        filters: [{ name: "PDF", extensions: ["pdf"] }],
+      });
+      if (typeof path === "string") {
+        await invoke("save_file_b64", { path, bytesB64: toB64(new Uint8Array(ab)) });
+        el("export-status").textContent = "✓ 已导出编辑版";
+      } else {
+        el("export-status").textContent = "已取消导出";
+      }
+    } catch (err) {
+      el("export-status").textContent = `导出失败：${err}`;
+    }
+  })();
+}
+
+function toB64(bytes: Uint8Array): string {
+  let bin = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(bin);
+}
 
 /* ---------- bookmarks ---------- */
 
@@ -195,6 +348,7 @@ function setToolbarEnabled(enabled: boolean): void {
     "btn-double",
     "btn-bookmark",
     "btn-split",
+    "btn-addtext",
     "btn-rotate",
     "btn-tts",
   ]) {
@@ -294,7 +448,7 @@ function refreshChrome(): void {
   renderBookmarks(pdf);
   if (tab.kind === "pdf") {
     void buildOutline(asPdf(tab.engine));
-    asPdf(tab.engine)?.buildThumbnails(el("thumbs-grid"));
+    asPdf(tab.engine)?.buildThumbnails(el("thumbs-grid"), true);
     setThumbsTabEnabled(true);
   } else {
     el("outline-tree").innerHTML = "";
@@ -397,6 +551,9 @@ async function createTab(
     annoTimer: null,
     dataTimer: null,
     splitOn: false,
+    sourceBytes: null,
+    textBoxes: [],
+    placingText: false,
   };
   if (path) {
     void invoke<{ annotations: Annotation[]; bookmarks: Bookmark[] }>("load_document", {
@@ -472,7 +629,8 @@ async function createTab(
 
   tabs.push(tab);
   activateTab(id);
-  await engine.open(buf, title);
+  tab.sourceBytes = buf;
+  await engine.open(buf.slice(0), title);
 }
 
 function restorePosition(tab: ViewerTab, resume: RecentFile): void {
@@ -700,6 +858,106 @@ function toggleTTS(): void {
 
 function rotateActive(): void {
   asPdf(activeViewer())?.rotatePage();
+}
+
+function initPageOps(): void {
+  const status = (text: string, isError = false): void => {
+    const s = el("page-ops-status");
+    s.textContent = text;
+    s.classList.toggle("error", isError);
+  };
+  const run = (
+    fn: (bytes: ArrayBuffer, pages: number[]) => Promise<Uint8Array>,
+    needSel: boolean,
+    label: string
+  ): void => {
+    const tab = activeTab();
+    const pdf = asPdf(tab?.engine ?? null);
+    if (!tab || !pdf || !tab.sourceBytes) return;
+    const pages = pdf.getSelectedPages();
+    if (needSel && pages.length === 0) {
+      status("请先勾选缩略图选择页面", true);
+      return;
+    }
+    status("处理中…");
+    void applyPageEdit((bytes) => fn(bytes, pages), null).then((ok) => {
+      if (ok) status(`✓ ${label}完成`);
+      else status("");
+      pdf.clearThumbSelection();
+    });
+  };
+  el("pg-del").addEventListener("click", () => {
+    void run((bytes, pages) => import("./editor").then((m) => m.deletePages(bytes, pages)), true, "删除");
+  });
+  el("pg-rotate").addEventListener("click", () => {
+    void run((bytes, pages) => import("./editor").then((m) => m.rotatePages(bytes, pages, 90)), true, "旋转");
+  });
+  el("pg-extract").addEventListener("click", () => {
+    void (async () => {
+      const pdf = asPdf(activeViewer());
+      const tab = activeTab();
+      if (!pdf || !tab?.sourceBytes) return;
+      const pages = pdf.getSelectedPages().length > 0 ? pdf.getSelectedPages() : [pdf.currentPageNumber()];
+      const { extractPages } = await import("./editor");
+      const out = await extractPages(copyOf(tab.sourceBytes), pages);
+      const ab = out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength) as ArrayBuffer;
+      const path = await (await import("@tauri-apps/plugin-dialog")).save({
+        defaultPath: `${tab.title.replace(/\.pdf$/i, "")}-提取页.pdf`,
+        filters: [{ name: "PDF", extensions: ["pdf"] }],
+      });
+      if (typeof path === "string") {
+        await invoke("save_file_b64", { path, bytesB64: toB64(new Uint8Array(ab)) });
+        status("✓ 已导出提取页");
+      } else status("已取消");
+    })();
+  });
+  el("pg-blank").addEventListener("click", () => {
+    const pdf = asPdf(activeViewer());
+    if (!pdf) return;
+    void applyPageEdit(
+      (bytes) => import("./editor").then((m) => m.insertBlankAfter(bytes, pdf.currentPageNumber())),
+      null
+    ).then((ok) => {
+      if (ok) status("✓ 已插入空白页");
+    });
+  });
+  el("pg-merge").addEventListener("click", () => {
+    void (async () => {
+      const tab = activeTab();
+      if (!tab?.sourceBytes) return;
+      const other = await openDialog({
+        multiple: false,
+        filters: [{ name: "PDF", extensions: ["pdf"] }],
+      });
+      if (typeof other !== "string") return;
+      status("合并中…");
+      const otherBytes = await invoke<ArrayBuffer>("read_pdf", { path: other });
+      const { appendDocument } = await import("./editor");
+      const ok = await applyPageEdit(
+        (bytes) => appendDocument(bytes, otherBytes.slice(0)),
+        null
+      );
+      if (ok) status("✓ 合并完成");
+    })();
+  });
+  el("pg-export-edited").addEventListener("click", () => bakeAndExport());
+}
+
+function initTextDialog(): void {
+  const dialog = el("text-dialog");
+  const input = el("text-input") as HTMLInputElement;
+  const close = (): void => dialog.classList.add("hidden");
+  el("text-ok").addEventListener("click", () => {
+    commitTextInput();
+    close();
+  });
+  el("text-cancel").addEventListener("click", close);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      commitTextInput();
+      close();
+    } else if (e.key === "Escape") close();
+  });
 }
 
 function initTheme(): void {
@@ -1022,6 +1280,10 @@ function initToolbar(): void {
   });
   el("btn-tts").addEventListener("click", toggleTTS);
   el("btn-rotate").addEventListener("click", rotateActive);
+  el("btn-addtext").addEventListener("click", () => {
+    startPlacingText();
+    selectedOrCurrent();
+  });
   el("btn-double").addEventListener("click", () => {
     const s = currentSettings();
     s.view_mode = s.view_mode === "double" ? "single" : "double";
@@ -1231,6 +1493,24 @@ async function init(): Promise<void> {
   initFindbar();
   initSplitters();
   initUpdater();
+  initPageOps();
+  initTextDialog();
+  el("viewer-wrap").addEventListener("click", (e) => {
+    if (!placingText) return;
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed) return;
+    const pageEl = (e.target as HTMLElement).closest(".page-view") as HTMLElement | null;
+    if (!pageEl) return;
+    const divs = el("viewer-wrap").querySelectorAll(".page-view");
+    const pageNo = Array.from(divs).indexOf(pageEl) + 1;
+    const rect = pageEl.getBoundingClientRect();
+    stopPlacingText();
+    showTextInput(
+      pageNo,
+      Math.min(Math.max((e.clientX - rect.left) / rect.width, 0.02), 0.9),
+      Math.min(Math.max((e.clientY - rect.top) / rect.height, 0.02), 0.95)
+    );
+  });
   void listen<string>("open-file", (e) => {
     if (typeof e.payload === "string") void openPath(e.payload);
   });

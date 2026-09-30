@@ -29,6 +29,9 @@
         <button id="btn-rotate" class="icon-btn" title="旋转页面" disabled>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
         </button>
+        <button id="btn-addtext" class="icon-btn" title="添加文本（点击页面放置）" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7V5h16v2M12 5v14M9 19h6"/></svg>
+        </button>
         <button id="btn-split" class="icon-btn" title="拆分视图（同文档两处对照）" disabled>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg>
         </button>
@@ -78,6 +81,21 @@
             <div class="bookmarks-block" id="recent-block">
               <div class="bookmarks-title">最近打开</div>
               <div id="recent-block-list"></div>
+            </div>
+            <div class="bookmarks-block" id="page-ops-block">
+              <div class="bookmarks-title">页面操作（勾选缩略图后可用）</div>
+              <div class="page-ops">
+                <button id="pg-del" class="ghost-btn" title="删除勾选页">删除</button>
+                <button id="pg-rotate" class="ghost-btn" title="勾选页旋转 +90°">旋转</button>
+                <button id="pg-extract" class="ghost-btn" title="勾选页导出为新 PDF">提取</button>
+                <button id="pg-blank" class="ghost-btn" title="在末尾插入空白页">空白页</button>
+                <button id="pg-merge" class="ghost-btn" title="合并其他 PDF 到文末">合并 PDF…</button>
+              </div>
+              <div class="page-ops">
+                <input id="watermark-text" class="inline-input wide" type="text" placeholder="水印文字（导出时生效）" />
+                <button id="pg-export-edited" class="ghost-btn" title="烘焙文本框与水印，导出编辑版 PDF">导出编辑版</button>
+              </div>
+              <div id="page-ops-status" class="settings-status" style="padding: 0 8px;"></div>
             </div>
           </div>
         </aside>
@@ -206,6 +224,16 @@
             </div>
             <div id="notes-list" class="card-list"></div>
           </section>
+          <div id="text-dialog" class="hidden">
+            <div class="pwd-box">
+              <div class="pwd-title">添加文本</div>
+              <input id="text-input" type="text" placeholder="输入文字内容" />
+              <div class="pwd-buttons">
+                <button id="text-cancel" class="ghost-btn">取消</button>
+                <button id="text-ok" class="accent-btn">放置</button>
+              </div>
+            </div>
+          </div>
           <section id="tab-settings" class="tab-panel">
             <div class="settings-form">
               <div class="settings-section">
