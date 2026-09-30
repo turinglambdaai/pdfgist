@@ -960,6 +960,39 @@ function initTextDialog(): void {
   });
 }
 
+/* ---------- focus mode ---------- */
+
+let focusOn = false;
+
+function setFocus(on: boolean): void {
+  focusOn = on;
+  document.documentElement.setAttribute("data-focus", on ? "on" : "off");
+  el("btn-focus").classList.toggle("active", on);
+  if (on) localStorage.setItem("pdfgist-focus", "1");
+  else localStorage.removeItem("pdfgist-focus");
+}
+
+function toggleFocus(): void {
+  setFocus(!focusOn);
+}
+
+function initFocusPeek(): void {
+  el("viewer-wrap").addEventListener(
+    "mousemove",
+    (e) => {
+      if (!focusOn) return;
+      el("left-panel").classList.toggle("peek", e.clientX <= 14);
+      el("sidebar").classList.toggle("peek", e.clientX >= window.innerWidth - 14);
+    },
+    { passive: true }
+  );
+  el("viewer-wrap").addEventListener("mouseleave", () => {
+    if (!focusOn) return;
+    el("left-panel").classList.remove("peek");
+    el("sidebar").classList.remove("peek");
+  });
+}
+
 function initTheme(): void {
   applyTheme();
   const select = el("theme-mode") as HTMLSelectElement;
@@ -972,6 +1005,7 @@ function initTheme(): void {
     localStorage.setItem(THEME_KEY, resolvedTheme() === "dark" ? "light" : "dark");
     applyTheme();
   });
+  el("btn-focus").addEventListener("click", toggleFocus);
   select.addEventListener("change", () => {
     localStorage.setItem(THEME_KEY, select.value);
     applyTheme();
@@ -1323,6 +1357,11 @@ function initKeyboard(): void {
       toggleBookmarkActive();
       return;
     }
+    if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "f") {
+      e.preventDefault();
+      toggleFocus();
+      return;
+    }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "w") {
       e.preventDefault();
       if (activeTabId) closeTab(activeTabId);
@@ -1495,6 +1534,8 @@ async function init(): Promise<void> {
   initUpdater();
   initPageOps();
   initTextDialog();
+  initFocusPeek();
+  if (localStorage.getItem("pdfgist-focus") === "1") setFocus(true);
   el("viewer-wrap").addEventListener("click", (e) => {
     if (!placingText) return;
     const sel = window.getSelection();
@@ -1526,6 +1567,7 @@ async function init(): Promise<void> {
       const word = await pdf.getWordAt(e.clientX, e.clientY);
       if (!word || !word.text) {
         pdf.clearWordOverlay();
+        hideSelectionBar();
         return;
       }
       pdf.showWordOverlay(word.page, word.rects);
@@ -1536,6 +1578,20 @@ async function init(): Promise<void> {
       bar.classList.remove("hidden");
     })();
   });
+  el("viewer-wrap").addEventListener("click", (e) => {
+    const pdf = asPdf(activeViewer());
+    if (!pdf) return;
+    if ((e.target as HTMLElement).closest(".page-view")) {
+      if (pdf.getWordOverlayCount() > 0 && !window.getSelection()?.toString()) {
+        pdf.clearWordOverlay();
+      }
+    }
+  });
+  el("viewer-wrap").addEventListener(
+    "scroll",
+    () => asPdf(activeViewer())?.clearWordOverlay(),
+    { passive: true }
+  );
   setToolbarEnabled(false);
   el("btn-double").classList.toggle("active", currentSettings().view_mode === "double");
   refreshChrome();

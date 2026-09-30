@@ -552,6 +552,10 @@ export class PdfViewer {
     this.wordOverlay = [];
   }
 
+  getWordOverlayCount(): number {
+    return this.wordOverlay.length;
+  }
+
   // Computes the word under the viewport point directly from text item
   // geometry (bypassing text-layer font metrics), returning the word text
   // plus page-space rects for highlighting.

@@ -2031,6 +2031,33 @@ body.panel-resizing {
   width: 320px;
 }
 
+/* ---------- focus mode ---------- */
+
+:root[data-focus="on"] #left-panel,
+:root[data-focus="on"] #sidebar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 70;
+  box-shadow: var(--shadow-lg);
+  transition: transform 0.18s ease;
+}
+
+:root[data-focus="on"] #left-panel {
+  left: 0;
+  transform: translateX(-100%);
+}
+
+:root[data-focus="on"] #sidebar {
+  right: 0;
+  transform: translateX(100%);
+}
+
+:root[data-focus="on"] #left-panel.peek,
+:root[data-focus="on"] #sidebar.peek {
+  transform: none;
+}
+
 /* ---------- print ---------- */
 
 @media print {

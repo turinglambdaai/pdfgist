@@ -5,6 +5,16 @@ All notable changes to PDFGist are documented here. Format follows
 
 ## [Unreleased]
 
+## [1.2.2] — 2026-10-01
+
+### Added
+
+- Focus mode: toolbar button (or Ctrl+Shift+F) slides both panels away for distraction-free reading; moving the mouse to a window edge briefly peeks the hidden panel; state is remembered across sessions
+
+### Fixed
+
+- The double-click word-selection box now clears on any single click or scroll, instead of lingering until the next double-click
+
 ## [1.2.1] — 2026-09-30
 
 ### Fixed
