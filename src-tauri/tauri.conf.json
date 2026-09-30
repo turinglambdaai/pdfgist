@@ -33,10 +33,10 @@
     "category": "Productivity",
     "fileAssociations": [
       {
-        "name": "PDF 文档 (PDFGist)",
+        "name": "PDF Document (PDFGist)",
         "ext": ["pdf"],
         "mimeType": "application/pdf",
-        "description": "用 PDFGist 打开 PDF 文档"
+        "description": "Open PDF documents with PDFGist"
       }
     ],
     "shortDescription": "AI PDF reader with BYOK translation and summarization",
