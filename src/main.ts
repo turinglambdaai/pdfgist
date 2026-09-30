@@ -1578,13 +1578,11 @@ async function init(): Promise<void> {
       bar.classList.remove("hidden");
     })();
   });
-  el("viewer-wrap").addEventListener("click", (e) => {
+  el("viewer-wrap").addEventListener("click", () => {
     const pdf = asPdf(activeViewer());
     if (!pdf) return;
-    if ((e.target as HTMLElement).closest(".page-view")) {
-      if (pdf.getWordOverlayCount() > 0 && !window.getSelection()?.toString()) {
-        pdf.clearWordOverlay();
-      }
+    if (pdf.getWordOverlayCount() > 0 && !window.getSelection()?.toString()) {
+      pdf.clearWordOverlay();
     }
   });
   el("viewer-wrap").addEventListener(

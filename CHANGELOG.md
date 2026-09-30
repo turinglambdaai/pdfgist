@@ -5,6 +5,12 @@ All notable changes to PDFGist are documented here. Format follows
 
 ## [Unreleased]
 
+## [1.2.3] — 2026-10-01
+
+### Fixed
+
+- Double-click word selection accuracy: word boundaries are now computed from per-character measured offsets (each character measured at the item's pixel height, normalized to the item's actual width) instead of uniform width/N — proportional fonts (narrow i/l vs wide w/m) no longer skew the boundary, which is what let leading letters slip out of the selection. Geometry-verified against rendered glyphs. Tolerances widened for slightly-off click points
+
 ## [1.2.2] — 2026-10-01
 
 ### Added

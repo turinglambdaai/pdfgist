@@ -49,6 +49,39 @@ interface ThumbView {
   rendered: boolean;
 }
 
+let wordMeasure: { ctx: CanvasRenderingContext2D; size: number } | null = null;
+
+// Per-character x offsets for a text item: measure each char at the item's
+// pixel height with the fallback font, then normalize to the item's actual
+// width. Proportional-font accurate (i/l narrow, w/m wide), unlike width/N.
+function measureCharOffsets(str: string, totalWidth: number, fontHeight: number): number[] {
+  if (!wordMeasure || wordMeasure.size !== fontHeight) {
+    if (!wordMeasure) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 8;
+      canvas.height = 8;
+      wordMeasure = { ctx: canvas.getContext("2d")!, size: 0 };
+    }
+    wordMeasure.ctx.font = `${fontHeight}px sans-serif`;
+    wordMeasure.size = fontHeight;
+  }
+  const widths: number[] = [];
+  let sum = 0;
+  for (const ch of str) {
+    const w = wordMeasure.ctx.measureText(ch).width;
+    widths.push(w);
+    sum += w;
+  }
+  const k = sum > 0 ? totalWidth / sum : 0;
+  const offsets: number[] = [0];
+  let acc = 0;
+  for (const w of widths) {
+    acc += w * k;
+    offsets.push(acc);
+  }
+  return offsets;
+}
+
 function isCancel(err: unknown): boolean {
   return err instanceof Error && err.name === "RenderingCancelledException";
 }
@@ -584,23 +617,30 @@ export class PdfViewer {
         const left = tx[4];
         const top = tx[5] - fontHeight;
         if (
-          yLocal < top - fontHeight * 0.5 ||
-          yLocal > top + fontHeight * 1.5 ||
+          yLocal < top - fontHeight * 0.8 ||
+          yLocal > top + fontHeight * 1.8 ||
           xLocal < left - 4 ||
           xLocal > left + width + 4
         ) {
           continue;
         }
-        const charW = width / Math.max(item.str.length, 1);
-        let idx = Math.floor((xLocal - left) / charW);
-        idx = Math.max(0, Math.min(item.str.length - 1, idx));
-        // expand to word boundaries within the item
         const str = item.str;
+        const offsets = measureCharOffsets(str, width, fontHeight);
+        // char under x (clamped)
+        let idx = 0;
+        while (idx < str.length - 1 && offsets[idx + 1] < xLocal - left) idx += 1;
         const isWordChar = (ch: string) => /[A-Za-z0-9À-ɏͰ-ϿЀ-ӿ一-鿿぀-ヿ]/.test(ch);
         if (!isWordChar(str[idx])) {
           let k = idx;
           while (k < str.length && !isWordChar(str[k])) k += 1;
-          if (k < str.length) idx = k;
+          if (k < str.length) {
+            idx = k;
+          } else {
+            let j = idx;
+            while (j > 0 && !isWordChar(str[j])) j -= 1;
+            if (j === 0 && !isWordChar(str[0])) continue;
+            idx = j;
+          }
         }
         let start = idx;
         let end = idx + 1;
@@ -609,9 +649,9 @@ export class PdfViewer {
         const word = str.slice(start, end);
         const rects = [
           {
-            x: left + charW * start,
+            x: left + offsets[start],
             y: top,
-            width: charW * (end - start),
+            width: offsets[end] - offsets[start],
             height: fontHeight,
           },
         ];
