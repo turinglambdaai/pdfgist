@@ -5,6 +5,22 @@ All notable changes to PDFGist are documented here. Format follows
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-09-30
+
+The 1.0: a complete local-first AI reader, feature-full and battle-tested.
+
+### Added
+
+- File association: double-clicking a PDF (or "Open with") now offers PDFGist; a second launch forwards the file to the running window instead of starting a second instance
+- Read aloud (TTS): speaks the current page text via the system speech engine
+- Page rotation: 90° steps for landscape scans
+- Annotation sidecar option: store highlights/notes/bookmarks as `<file>.pdfgist.json` next to the PDF so cloud drives sync them
+- Performance verified on a 500-page document: open + layout is instant, lazy rendering keeps scroll smooth
+
+### Deferred (by design)
+
+- Interactive form filling (needs a PDF-rewrite layer) and full UI i18n — planned post-1.0
+
 ## [0.9.0] — 2026-09-29
 
 ### Fixed

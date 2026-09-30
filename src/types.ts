@@ -45,6 +45,7 @@ export interface Settings {
   target_language: string;
   recent_files: RecentFile[];
   view_mode: "single" | "double";
+  annotation_sidecar: boolean;
 }
 
 export interface Bookmark {

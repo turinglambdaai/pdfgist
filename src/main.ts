@@ -15,6 +15,7 @@ import { currentSettings, ensureProviderConfigured, initSettings, saveSettings }
 import type { Annotation, Bookmark, RecentFile } from "./types";
 import { initSidebar, refreshAnnotations, switchTab, translateSelection } from "./sidebar";
 import { initUpdater } from "./updater";
+import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
 interface ViewerTab {
@@ -193,6 +194,8 @@ function setToolbarEnabled(enabled: boolean): void {
     "btn-double",
     "btn-bookmark",
     "btn-split",
+    "btn-rotate",
+    "btn-tts",
   ]) {
     (el(id) as HTMLButtonElement).disabled = !enabled;
   }
@@ -280,6 +283,7 @@ function refreshChrome(): void {
   tab.engine.updateActiveThumb();
   (el("btn-double") as HTMLButtonElement).disabled = tab.kind === "epub";
   (el("btn-print") as HTMLButtonElement).disabled = tab.kind === "epub";
+  (el("btn-rotate") as HTMLButtonElement).disabled = tab.kind === "epub";
   const pdf = asPdf(tab.engine);
   const bookmarked = pdf?.isBookmarked(tab.engine.currentPageNumber()) ?? false;
   el("btn-bookmark").classList.toggle("active", bookmarked);
@@ -391,7 +395,10 @@ async function createTab(
     splitOn: false,
   };
   if (path) {
-    void invoke<{ annotations: Annotation[]; bookmarks: Bookmark[] }>("load_document", { path })
+    void invoke<{ annotations: Annotation[]; bookmarks: Bookmark[] }>("load_document", {
+      path,
+      sidecar: currentSettings().annotation_sidecar,
+    })
       .then((data) => {
         if (!tabs.includes(tab)) return;
         tab.annotations = data.annotations;
@@ -432,6 +439,19 @@ async function createTab(
     }
   };
   wrap.addEventListener("scroll", () => queueRecentSave(tab));
+  engine.events.onLink = (url: string) => {
+    void openUrl(url).catch((err) => alert(`无法打开链接：${err}`));
+  };
+  if (engine instanceof EpubViewer) {
+    engine.events.onSelection = (sel) => {
+      pendingSelection = sel.text;
+      const bar = el("selection-bar");
+      bar.style.left = `${Math.min(Math.max(sel.x - 52, 8), window.innerWidth - 130)}px`;
+      bar.style.top = `${Math.max(sel.y - 44, 8)}px`;
+      bar.classList.add("epub");
+      bar.classList.remove("hidden");
+    };
+  }
   engine.events.onLink = (url: string) => {
     void openUrl(url).catch((err) => alert(`无法打开链接：${err}`));
   };
@@ -638,6 +658,46 @@ function applyTheme(): void {
   }
 }
 
+/* ---------- TTS (read current page aloud) ---------- */
+
+let ttsSpeaking = false;
+
+function stopTTS(): void {
+  speechSynthesis.cancel();
+  ttsSpeaking = false;
+  el("btn-tts").classList.remove("active");
+}
+
+function toggleTTS(): void {
+  if (ttsSpeaking) {
+    stopTTS();
+    return;
+  }
+  const viewer = activeViewer();
+  if (!viewer?.isOpen) return;
+  const page = viewer.currentPageNumber();
+  void viewer.getPageText(page).then((text) => {
+    if (!text.trim()) {
+      el("doc-title").textContent = "本页没有可朗读的文本";
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(text.slice(0, 20000));
+    utterance.lang = "zh-CN";
+    utterance.onend = () => stopTTS();
+    utterance.onerror = () => stopTTS();
+    speechSynthesis.cancel();
+    speechSynthesis.speak(utterance);
+    ttsSpeaking = true;
+    el("btn-tts").classList.add("active");
+  });
+}
+
+/* ---------- page rotation ---------- */
+
+function rotateActive(): void {
+  asPdf(activeViewer())?.rotatePage();
+}
+
 function initTheme(): void {
   applyTheme();
   const select = el("theme-mode") as HTMLSelectElement;
@@ -755,6 +815,7 @@ async function saveDocumentData(tab: ViewerTab): Promise<void> {
     await invoke("save_document", {
       path: tab.path,
       data: { annotations: tab.annotations, bookmarks: tab.bookmarks },
+      sidecar: currentSettings().annotation_sidecar,
     });
   } catch (err) {
     console.error("document data save failed", err);
@@ -941,6 +1002,8 @@ function initToolbar(): void {
     const tab = activeTab();
     if (tab) setSplit(!tab.splitOn);
   });
+  el("btn-tts").addEventListener("click", toggleTTS);
+  el("btn-rotate").addEventListener("click", rotateActive);
   el("btn-double").addEventListener("click", () => {
     const s = currentSettings();
     s.view_mode = s.view_mode === "double" ? "single" : "double";
@@ -1136,6 +1199,9 @@ async function init(): Promise<void> {
   initFindbar();
   initSplitters();
   initUpdater();
+  void listen<string>("open-file", (e) => {
+    if (typeof e.payload === "string") void openPath(e.payload);
+  });
   setToolbarEnabled(false);
   el("btn-double").classList.toggle("active", currentSettings().view_mode === "double");
   refreshChrome();

@@ -1,5 +1,5 @@
 import * as pdfjs from "pdfjs-dist";
-import type { PDFDocumentProxy } from "pdfjs-dist";
+import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
 import type { TextContent, TextItem, TextMarkedContent } from "pdfjs-dist/types/src/display/api";
 import type { Annotation, Bookmark } from "./types";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
@@ -79,6 +79,7 @@ export class PdfViewer {
   private scale = 1;
   private fitWidth = true;
   private viewMode: "single" | "double" = "single";
+  private extraRotation = 0; // user-applied 90° steps on top of page.rotate
   private currentPage = 1;
   private renderScheduled = false;
   private resizeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -286,6 +287,33 @@ export class PdfViewer {
 
   fitToWidth(): void {
     this.setScale(this.computeFitWidth(), true);
+  }
+
+  // Effective viewport honoring per-page base rotation + user rotation.
+  private viewportFor(page: PDFPageProxy, scale: number): pdfjs.PageViewport {
+    return page.getViewport({ scale, rotation: (page.rotate + this.extraRotation) % 360 });
+  }
+
+  rotatePage(): void {
+    if (!this.doc || this.pages.length === 0) return;
+    this.extraRotation = (this.extraRotation + 90) % 360;
+    void (async () => {
+      for (const pv of this.pages) {
+        if (!this.doc) return;
+        pv.renderTask?.cancel();
+        pv.renderTask = null;
+        pv.rendering = false;
+        this.unrender(pv);
+        const page = await this.doc.getPage(pv.index + 1);
+        const viewport = this.viewportFor(page, 1);
+        pv.width = viewport.width;
+        pv.height = viewport.height;
+        pv.div.style.width = `${Math.floor(pv.width * this.scale)}px`;
+        pv.div.style.height = `${Math.floor(pv.height * this.scale)}px`;
+      }
+      if (this.fitWidth) this.setScale(this.computeFitWidth(), true);
+      else this.setScale(this.scale);
+    })();
   }
 
   // Container width changes via the panel splitters, not window resize.
@@ -736,7 +764,7 @@ export class PdfViewer {
     const item = pv.textContent?.items[hit.itemIndex];
     if (!item || !("str" in item) || !this.doc) return null;
     const page = await this.doc.getPage(pv.index + 1);
-    const viewport = page.getViewport({ scale: this.scale });
+    const viewport = this.viewportFor(page, this.scale);
     const tx = pdfjs.Util.transform(viewport.transform, item.transform);
     const fontHeight = Math.hypot(tx[2], tx[3]);
     const charW = (item.width * viewport.scale) / Math.max(item.str.length, 1);
@@ -918,7 +946,7 @@ export class PdfViewer {
     pv.rendering = true;
     try {
       const page = await this.doc.getPage(pv.index + 1);
-      const viewport = page.getViewport({ scale: this.scale });
+      const viewport = this.viewportFor(page, this.scale);
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       pv.canvas.width = Math.max(1, Math.floor(viewport.width * dpr));
       pv.canvas.height = Math.max(1, Math.floor(viewport.height * dpr));

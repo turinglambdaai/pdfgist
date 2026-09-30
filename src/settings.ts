@@ -25,6 +25,7 @@ function defaultSettings(): Settings {
     target_language: "中文",
     recent_files: [],
     view_mode: "single",
+    annotation_sidecar: false,
   };
 }
 
@@ -91,6 +92,7 @@ export async function initSettings(onNeedConfig: () => void): Promise<void> {
       target_language: stored.target_language || fallback.target_language,
       recent_files: Array.isArray(stored.recent_files) ? stored.recent_files : [],
       view_mode: stored.view_mode === "double" ? "double" : "single",
+      annotation_sidecar: stored.annotation_sidecar === true,
     };
   } catch {
     current = fallback;
@@ -161,6 +163,12 @@ export async function initSettings(onNeedConfig: () => void): Promise<void> {
       setStatus(String(e), true);
     }
   };
+  const sidecar = el("anno-sidecar") as HTMLInputElement;
+  sidecar.checked = current.annotation_sidecar;
+  sidecar.addEventListener("change", () => {
+    current.annotation_sidecar = sidecar.checked;
+    void saveSettings(current).catch(() => {});
+  });
   el("btn-fetch-models").addEventListener("click", () => void fetchModels());
   el("btn-test").addEventListener("click", () => void fetchModels());
 

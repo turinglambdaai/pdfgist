@@ -84,7 +84,11 @@ fn fnv1a64(s: &str) -> u64 {
     hash
 }
 
-fn storage_path(app: &AppHandle, source: &str) -> Result<std::path::PathBuf, String> {
+fn storage_path(app: &AppHandle, source: &str, sidecar: bool) -> Result<std::path::PathBuf, String> {
+    if sidecar {
+        // store next to the PDF so cloud drives (Resilio etc.) sync it
+        return Ok(std::path::PathBuf::from(format!("{source}.pdfgist.json")));
+    }
     let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
     let dir = dir.join("annotations");
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
@@ -92,8 +96,8 @@ fn storage_path(app: &AppHandle, source: &str) -> Result<std::path::PathBuf, Str
 }
 
 #[tauri::command]
-pub fn load_document(app: AppHandle, path: String) -> Result<DocumentData, String> {
-    let file = storage_path(&app, &path)?;
+pub fn load_document(app: AppHandle, path: String, sidecar: bool) -> Result<DocumentData, String> {
+    let file = storage_path(&app, &path, sidecar)?;
     if !file.exists() {
         return Ok(DocumentData::default());
     }
@@ -114,8 +118,8 @@ pub fn load_document(app: AppHandle, path: String) -> Result<DocumentData, Strin
 }
 
 #[tauri::command]
-pub fn save_document(app: AppHandle, path: String, data: DocumentData) -> Result<(), String> {
-    let file = storage_path(&app, &path)?;
+pub fn save_document(app: AppHandle, path: String, data: DocumentData, sidecar: bool) -> Result<(), String> {
+    let file = storage_path(&app, &path, sidecar)?;
     let json = serde_json::to_string_pretty(&data).map_err(|e| e.to_string())?;
     fs::write(&file, json).map_err(|e| format!("保存批注失败：{e}"))
 }

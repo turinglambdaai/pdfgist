@@ -52,6 +52,7 @@ pub struct Settings {
     pub target_language: String,
     pub recent_files: Vec<RecentFile>,
     pub view_mode: String,
+    pub annotation_sidecar: bool,
 }
 
 impl Default for Settings {
@@ -61,6 +62,7 @@ impl Default for Settings {
             target_language: "中文".into(),
             recent_files: Vec::new(),
             view_mode: "single".into(),
+            annotation_sidecar: false,
         }
     }
 }

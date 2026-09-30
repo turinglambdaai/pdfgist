@@ -413,7 +413,7 @@ export class EpubViewer {
     return this.toc;
   }
 
-  getPageText(chapter: number): string {
+  async getPageText(chapter: number): Promise<string> {
     const doc = this.docs[chapter - 1];
     if (!doc) return "";
     return (doc.body.textContent ?? "").replace(/[ \t]+/g, " ").trim();
@@ -424,7 +424,7 @@ export class EpubViewer {
     const parts: string[] = [];
     let used = 0;
     for (let i = 1; i <= n; i++) {
-      const text = this.getPageText(i);
+      const text = await this.getPageText(i);
       if (!text) continue;
       const slice = text.length > 3000 ? `${text.slice(0, 3000)}…` : text;
       parts.push(`--- 第 ${i} 章 ---\n${slice}`);
