@@ -88,6 +88,7 @@ export function switchTab(id: string): void {
   for (const panel of document.querySelectorAll<HTMLElement>(".tab-panel")) {
     panel.classList.toggle("active", panel.id === `tab-${id}`);
   }
+  window.dispatchEvent(new CustomEvent("pdfgist-tab-activated", { detail: id }));
 }
 
 interface Card {

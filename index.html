@@ -152,6 +152,7 @@
             <button class="tab-btn" data-tab="summarize">总结</button>
             <button class="tab-btn" data-tab="chat">对话</button>
             <button class="tab-btn" data-tab="notes">批注</button>
+            <button class="tab-btn" data-tab="forms">表单</button>
             <button class="tab-btn" data-tab="settings">设置</button>
           </nav>
           <section id="tab-translate" class="tab-panel active">
@@ -190,6 +191,13 @@
                 <button id="btn-chat-stop" class="ghost-btn hidden">停止</button>
               </div>
             </div>
+          </section>
+          <section id="tab-forms" class="tab-panel">
+            <div class="panel-actions">
+              <button id="btn-export-filled" class="accent-btn">导出填写后的 PDF</button>
+            </div>
+            <div id="forms-list" class="card-list"></div>
+            <div id="forms-status" class="settings-status" style="padding: 0 12px 12px;"></div>
           </section>
           <section id="tab-notes" class="tab-panel">
             <div class="panel-actions">
@@ -299,6 +307,9 @@
         <button class="sel-color" data-color="yellow" title="黄色高亮"></button>
         <button class="sel-color" data-color="green" title="绿色高亮"></button>
         <button class="sel-color" data-color="blue" title="蓝色高亮"></button>
+        <span class="bar-sep"></span>
+        <button id="sel-underline" class="sel-kind" title="下划线">下划线</button>
+        <button id="sel-strike" class="sel-kind" title="删除线">删除线</button>
       </div>
       <div id="annotation-popover" class="hidden">
         <div id="anno-excerpt" class="anno-excerpt"></div>

@@ -30,6 +30,7 @@ pub struct Annotation {
     pub rects: Vec<AnnotationRect>,
     pub excerpt: String,
     pub color: String,
+    pub kind: String,
     pub note: String,
     pub created: i64,
 }
@@ -42,6 +43,7 @@ impl Default for Annotation {
             rects: Vec::new(),
             excerpt: String::new(),
             color: "yellow".into(),
+            kind: "highlight".into(),
             note: String::new(),
             created: 0,
         }

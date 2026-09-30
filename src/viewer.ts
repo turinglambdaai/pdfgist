@@ -500,6 +500,48 @@ export class PdfViewer {
     return this.bookmarks.some((b) => b.page === page);
   }
 
+  /* ---------- form fields (AcroForm) ---------- */
+
+  // Values live in pdf.js annotation storage; re-rendering affected pages
+  // draws them onto the canvas.
+  setFormValue(name: string, value: string | boolean): void {
+    if (!this.doc) return;
+    this.doc.annotationStorage.setValue(name, value);
+    void this.rerenderFormPages(name);
+  }
+
+  private async rerenderFormPages(name: string): Promise<void> {
+    if (!this.doc) return;
+    for (const pv of this.pages) {
+      const page = await this.doc.getPage(pv.index + 1);
+      const annots = await page.getAnnotations({ intent: "display" });
+      if (annots.some((a) => (a as { fieldName?: string }).fieldName === name)) {
+        pv.renderTask?.cancel();
+        pv.rendered = false;
+        pv.rendering = false;
+        this.unrender(pv);
+        void this.ensureRendered(pv);
+      }
+    }
+  }
+
+  async collectFormFields(): Promise<Array<{ name: string; type: string; page: number }>> {
+    if (!this.doc) return [];
+    const out: Array<{ name: string; type: string; page: number }> = [];
+    const seen = new Set<string>();
+    for (const pv of this.pages.slice(0, 100)) {
+      const page = await this.doc.getPage(pv.index + 1);
+      const annots = await page.getAnnotations({ intent: "display" });
+      for (const a of annots) {
+        const w = a as { subtype?: string; fieldName?: string; fieldType?: string };
+        if (w.subtype !== "Widget" || !w.fieldName || seen.has(w.fieldName)) continue;
+        seen.add(w.fieldName);
+        out.push({ name: w.fieldName, type: w.fieldType ?? "", page: pv.index + 1 });
+      }
+    }
+    return out;
+  }
+
   /* ---------- password ---------- */
 
   hasPendingPassword(): boolean {
@@ -784,10 +826,25 @@ export class PdfViewer {
       for (const r of a.rects) {
         const div = document.createElement("div");
         div.className = `anno anno-${a.color}`;
-        div.style.left = `${r.x * this.scale}px`;
-        div.style.top = `${r.y * this.scale}px`;
-        div.style.width = `${r.width * this.scale}px`;
-        div.style.height = `${r.height * this.scale}px`;
+        if (a.kind === "underline") {
+          div.style.left = `${r.x * this.scale}px`;
+          div.style.top = `${(r.y + r.height) * this.scale - 2}px`;
+          div.style.width = `${r.width * this.scale}px`;
+          div.style.height = "2.5px";
+          div.style.background = "currentColor";
+          div.style.color = "rgb(47, 111, 237)";
+        } else if (a.kind === "strike") {
+          div.style.left = `${r.x * this.scale}px`;
+          div.style.top = `${(r.y + r.height / 2) * this.scale - 1.5}px`;
+          div.style.width = `${r.width * this.scale}px`;
+          div.style.height = "2.5px";
+          div.style.background = "rgb(214, 69, 105)";
+        } else {
+          div.style.left = `${r.x * this.scale}px`;
+          div.style.top = `${r.y * this.scale}px`;
+          div.style.width = `${r.width * this.scale}px`;
+          div.style.height = `${r.height * this.scale}px`;
+        }
         pv.highlightLayer.append(div);
       }
     }
@@ -956,7 +1013,12 @@ export class PdfViewer {
       if (!ctx) return;
       const transform =
         dpr === 1 ? undefined : ([dpr, 0, 0, dpr, 0, 0] as [number, number, number, number, number, number]);
-      const task = page.render({ canvasContext: ctx, viewport, transform });
+      const task = page.render({
+        canvasContext: ctx,
+        viewport,
+        transform,
+        annotationMode: pdfjs.AnnotationMode.ENABLE_FORMS,
+      });
       pv.renderTask = task;
       try {
         await task.promise;

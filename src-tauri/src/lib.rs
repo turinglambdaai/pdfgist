@@ -35,6 +35,7 @@ pub fn run() {
             settings::save_settings,
             library::read_pdf,
             library::save_text,
+            library::save_file_b64,
             annotations::load_document,
             annotations::save_document,
             llm::llm_chat,

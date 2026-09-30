@@ -5,6 +5,15 @@ All notable changes to PDFGist are documented here. Format follows
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-09-30
+
+Forms and richer annotations.
+
+### Added
+
+- AcroForm form filling: the new 表单 tab lists all form fields of the document (text fields, checkboxes, choices), filled values render onto the pages via pdf.js annotation storage, and 导出填写后的 PDF saves the completed document through pdf-lib
+- Annotation kinds: 下划线 and 删除线 join the selection bar next to the three highlight colors; kind is persisted per annotation and included in Markdown export
+
 ## [1.0.0] — 2026-09-30
 
 The 1.0: a complete local-first AI reader, feature-full and battle-tested.

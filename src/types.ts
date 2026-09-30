@@ -30,14 +30,23 @@ export interface AnnoRect {
 
 // Text highlights stored in page-space coordinates (scale 1). The excerpt
 // is captured at creation time so the sidebar never needs to re-extract text.
+export type AnnotationKind = "highlight" | "underline" | "strike";
+
 export interface Annotation {
   id: string;
   page: number;
   rects: AnnoRect[];
   excerpt: string;
   color: "yellow" | "green" | "blue";
+  kind: AnnotationKind;
   note: string;
   created: number; // unix seconds
+}
+
+export interface FormField {
+  name: string;
+  type: string; // Tx | Btn | Ch
+  page: number; // 1-based
 }
 
 export interface Settings {

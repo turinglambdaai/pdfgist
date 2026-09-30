@@ -12,9 +12,10 @@ function asPdf(e: Engine | null): PdfViewer | null {
   return e instanceof PdfViewer ? e : null;
 }
 import { currentSettings, ensureProviderConfigured, initSettings, saveSettings } from "./settings";
-import type { Annotation, Bookmark, RecentFile } from "./types";
+import type { Annotation, AnnotationKind, Bookmark, RecentFile } from "./types";
 import { initSidebar, refreshAnnotations, switchTab, translateSelection } from "./sidebar";
 import { initUpdater } from "./updater";
+import { activateFormTab, initFormTab, onFormContextChanged, reloadFormFields, resetFormCache } from "./forms";
 import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
@@ -277,7 +278,10 @@ function refreshChrome(): void {
   }
   el("doc-title").textContent = tab.title;
   el("page-total").textContent = String(tab.pages || "–");
+  onFormContextChanged();
   el("doc-pages-info").textContent = tab.kind === "epub" ? `EPUB · ${tab.pages} 章` : `PDF · ${tab.pages} 页`;
+  resetFormCache();
+  if (el("tab-forms").classList.contains("active")) void reloadFormFields();
   (el("page-input") as HTMLInputElement).value = tab.engine.currentPageNumber().toString();
   (el("btn-zoom-reset") as HTMLButtonElement).textContent = `${Math.round(tab.engine.getScale() * 100)}%`;
   tab.engine.updateActiveThumb();
@@ -848,7 +852,10 @@ function hideSelectionBar(): void {
   el("selection-bar").classList.add("hidden");
 }
 
-function createAnnotationFromSelection(color: "yellow" | "green" | "blue"): void {
+function createAnnotationFromSelection(
+  color: "yellow" | "green" | "blue",
+  kind: AnnotationKind = "highlight"
+): void {
   const tab = activeTab();
   const viewer = activeViewer();
   if (!tab || !viewer) return;
@@ -862,6 +869,7 @@ function createAnnotationFromSelection(color: "yellow" | "green" | "blue"): void
     rects: selInfo.rects,
     excerpt: text.slice(0, 800),
     color,
+    kind,
     note: "",
     created: Math.floor(Date.now() / 1000),
   };
@@ -913,6 +921,16 @@ function initSelectionAction(): void {
       createAnnotationFromSelection((dot.dataset.color as "yellow" | "green" | "blue") ?? "yellow");
     });
   }
+  el("sel-underline").addEventListener("click", () => {
+    const text = window.getSelection()?.toString().trim() ?? "";
+    hideSelectionBar();
+    if (text) createAnnotationFromSelection("blue", "underline");
+  });
+  el("sel-strike").addEventListener("click", () => {
+    const text = window.getSelection()?.toString().trim() ?? "";
+    hideSelectionBar();
+    if (text) createAnnotationFromSelection("yellow", "strike");
+  });
 
   document.addEventListener("mouseup", () => {
     const sel = window.getSelection();
@@ -1152,6 +1170,20 @@ function initDragDrop(): void {
 async function init(): Promise<void> {
   initTheme();
   await initSettings(() => switchTab("settings"));
+  initFormTab({
+    collect: async () => {
+      const pdf = asPdf(activeViewer());
+      return pdf ? pdf.collectFormFields() : [];
+    },
+    setValue: (name, value) => {
+      asPdf(activeViewer())?.setFormValue(name, value);
+    },
+    meta: () => {
+      const t = activeTab();
+      return t ? { title: t.title, path: t.path } : null;
+    },
+    isPdf: () => activeTab()?.kind === "pdf",
+  });
   initSidebar({
     getProvider: () => ensureProviderConfigured(),
     getTargetLang: () => currentSettings().target_language,
@@ -1201,6 +1233,11 @@ async function init(): Promise<void> {
   initUpdater();
   void listen<string>("open-file", (e) => {
     if (typeof e.payload === "string") void openPath(e.payload);
+  });
+  window.addEventListener("pdfgist-tab-activated", (e) => {
+    if ((e as CustomEvent).detail === "forms" && activeTab()?.kind === "pdf") {
+      activateFormTab();
+    }
   });
   setToolbarEnabled(false);
   el("btn-double").classList.toggle("active", currentSettings().view_mode === "double");
