@@ -5,3 +5,4 @@ src-tauri/gen/schemas/
 updater-keys/
 *.log
 .DS_Store
+compiled/
