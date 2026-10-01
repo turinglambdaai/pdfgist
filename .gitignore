@@ -6,3 +6,9 @@ updater-keys/
 *.log
 .DS_Store
 compiled/
+
+# rivet build artifacts
+.rivet/
+build/
+dist/
+compiled/

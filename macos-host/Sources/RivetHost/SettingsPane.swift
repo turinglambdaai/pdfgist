@@ -1,0 +1,274 @@
+import SwiftUI
+import AppKit
+
+/// AI provider settings (设置 tab) — preset picker with per-preset stash,
+/// base URL / API key / model, connection test, target language, storage and
+/// appearance options. Split into small sections to keep the type-checker sane.
+struct SettingsPane: View {
+    @EnvironmentObject private var model: PDFGistModel
+
+    @State private var providerID = "deepseek"
+    @State private var baseURL = ""
+    @State private var modelField = ""
+    @State private var apiKey = ""
+    @State private var target: TargetLanguage = .zh
+    @State private var viewMode = "single"
+    @State private var sidecar = false
+    @State private var status = ""
+    @State private var statusIsError = false
+    @State private var modelSuggestions: [String] = []
+    @State private var busy = false
+    @State private var loaded = false
+    @State private var presetStash: [String: (url: String, model: String)] = [:]
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                providerSection
+                Divider().overlay(Theme.border)
+                readingSection
+                Divider().overlay(Theme.border)
+                appearanceSection
+                Divider().overlay(Theme.border)
+                privacyFooter
+            }
+            .padding(12)
+        }
+        .onAppear { if !loaded { loadFromSettings(); loaded = true } }
+    }
+
+    // MARK: sections
+
+    private var providerSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            settingLabel(L10n.t("ui.settings.preset"))
+            Picker("", selection: Binding(
+                get: { providerID },
+                set: { switchPreset($0) })) {
+                ForEach(model.presets, id: \.id) { preset in
+                    Text(preset.label).tag(preset.id)
+                }
+            }
+            .labelsHidden()
+
+            settingLabel(L10n.t("ui.settings.base-url"))
+            TextField("https://…", text: $baseURL)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(size: 12))
+
+            settingLabel(L10n.t("ui.settings.model"))
+            TextField("", text: $modelField)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(size: 12))
+            if !modelSuggestions.isEmpty {
+                Picker("", selection: Binding(
+                    get: { modelField },
+                    set: { modelField = $0 })) {
+                    ForEach(modelSuggestions, id: \.self) { suggestion in
+                        Text(suggestion).tag(suggestion)
+                    }
+                }
+                .labelsHidden()
+                .font(.system(size: 11))
+            }
+
+            settingLabel(L10n.t("ui.settings.api-key"))
+            HStack(spacing: 6) {
+                SecureField(
+                    model.settings.has_api_key ? L10n.t("ui.settings.api-key-saved") : "",
+                    text: $apiKey)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 12))
+                smallButton(L10n.t("ui.settings.save")) {
+                    Task { await saveKey() }
+                }
+                .disabled(apiKey.isEmpty || busy)
+            }
+
+            HStack(spacing: 6) {
+                smallButton(L10n.t("ui.settings.fetch-models")) {
+                    Task { await testConnection() }
+                }
+                .disabled(busy || !canTest)
+                smallButton(L10n.t("ui.settings.test")) {
+                    Task { await testConnection() }
+                }
+                .disabled(busy || !canTest)
+                if busy {
+                    ProgressView().controlSize(.small)
+                }
+            }
+            if !status.isEmpty {
+                Text(status)
+                    .font(.system(size: 11))
+                    .foregroundStyle(statusIsError ? Theme.danger : Theme.textDim)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    private var readingSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            settingLabel(L10n.t("ui.settings.target-language"))
+            Picker("", selection: Binding(
+                get: { target },
+                set: { target = $0 })) {
+                ForEach(TargetLanguage.allCasesArray, id: \.self) { code in
+                    Text(languageName(code)).tag(code)
+                }
+            }
+            .labelsHidden()
+
+            settingLabel(L10n.t("ui.settings.view-mode"))
+            Picker("", selection: Binding(
+                get: { viewMode },
+                set: { viewMode = $0 })) {
+                Text(L10n.t("ui.settings.view-single")).tag("single")
+                Text(L10n.t("ui.settings.view-double")).tag("double")
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+
+            Toggle(isOn: Binding(
+                get: { sidecar },
+                set: { sidecar = $0 })) {
+                Text(L10n.t("ui.settings.sidecar"))
+                    .font(.system(size: 12))
+            }
+
+            smallButton(L10n.t("ui.settings.save")) {
+                Task { await save() }
+            }
+            .disabled(busy)
+        }
+    }
+
+    private var appearanceSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            settingLabel(L10n.t("ui.toolbar.theme-light") + " / " + L10n.t("ui.toolbar.theme-dark"))
+            Picker("", selection: Binding(
+                get: { model.theme },
+                set: { model.setTheme($0) })) {
+                Text("System").tag("system")
+                Text(L10n.t("ui.toolbar.theme-light")).tag("light")
+                Text(L10n.t("ui.toolbar.theme-dark")).tag("dark")
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+        }
+    }
+
+    private var privacyFooter: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(L10n.t("ui.settings.privacy"))
+                .font(.system(size: 11))
+                .foregroundStyle(Theme.textFaint)
+            Text("PDFGist \(RivetGeneratedConfig.version) · Rivet protocol v\(RivetGeneratedConfig.build)")
+                .font(.system(size: 10))
+                .foregroundStyle(Theme.textFaint)
+        }
+    }
+
+    // MARK: helpers
+
+    private var canTest: Bool {
+        !baseURL.trimmingCharacters(in: .whitespaces).isEmpty
+            && (!modelField.trimmingCharacters(in: .whitespaces).isEmpty || model.settings.has_api_key)
+    }
+
+    private func settingLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(Theme.textDim)
+    }
+
+    private func smallButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 12))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Theme.text)
+        .background(RoundedRectangle(cornerRadius: 5).fill(Theme.panelAlt))
+        .overlay(RoundedRectangle(cornerRadius: 5).stroke(Theme.border))
+    }
+
+    private func languageName(_ code: TargetLanguage) -> String {
+        model.languageName(code)
+    }
+
+    private func loadFromSettings() {
+        providerID = model.settings.provider
+        baseURL = model.settings.base_url
+        modelField = model.settings.model
+        target = model.settings.target_language
+        viewMode = model.settings.view_mode == "double" ? "double" : "single"
+        sidecar = model.settings.annotation_sidecar
+    }
+
+    /// v1 preset behavior: stash the edited URL/model under the old preset,
+    /// restore the stash (or the preset defaults) for the new one.
+    private func switchPreset(_ newID: String) {
+        presetStash[providerID] = (baseURL, modelField)
+        providerID = newID
+        if let stash = presetStash[newID] {
+            baseURL = stash.url
+            modelField = stash.model
+        } else if let preset = model.presets.first(where: { $0.id == newID }) {
+            baseURL = preset.base_url
+            modelField = preset.default_model
+        } else {
+            baseURL = ""
+            modelField = ""
+        }
+        apiKey = ""
+        modelSuggestions = []
+    }
+
+    private func saveKey() async {
+        busy = true
+        defer { busy = false }
+        status = await model.saveApiKey(apiKey.trimmingCharacters(in: .whitespaces))
+        statusIsError = !status.hasPrefix("✓")
+        apiKey = ""
+    }
+
+    private func testConnection() async {
+        busy = true
+        status = L10n.t("ui.settings.fetching")
+        statusIsError = false
+        defer { busy = false }
+        let result = await model.testConnection(
+            baseURL: baseURL.trimmingCharacters(in: .whitespaces),
+            apiKey: apiKey.trimmingCharacters(in: .whitespaces),
+            model: modelField.trimmingCharacters(in: .whitespaces))
+        status = result.message
+        statusIsError = !result.message.hasPrefix("✓")
+        modelSuggestions = result.models
+    }
+
+    private func save() async {
+        busy = true
+        defer { busy = false }
+        status = await model.saveSettings(
+            provider: providerID,
+            baseURL: baseURL.trimmingCharacters(in: .whitespaces),
+            model: modelField.trimmingCharacters(in: .whitespaces),
+            target: target,
+            viewMode: viewMode,
+            sidecar: sidecar)
+        statusIsError = !status.hasPrefix("✓")
+    }
+}
+
+extension TargetLanguage {
+    static var allCasesArray: [TargetLanguage] {
+        [.zh, .zh_hant, .en, .ja, .ko, .fr, .de, .es]
+    }
+
+
+}
+

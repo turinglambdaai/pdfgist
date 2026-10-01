@@ -92,8 +92,10 @@
 (define-event stream-done : StreamDone)
 (define-event stream-error : StreamError)
 
-;; Hosts can read the active backend locale (zh default); set-locale updates it.
-(define-state locale : String "zh")
+;; Hosts can read the active backend locale (zh default); set-locale updates
+;; it. The state is named backend-locale because the C++ name of the `locale`
+;; setter (set_locale) collided with the set-locale RPC.
+(define-state backend-locale : String "zh")
 
 ;; ---- stream bookkeeping ----
 ;;
@@ -354,7 +356,7 @@
 ;; Backend-side error/status strings follow this locale ("zh" | "en").
 (define-rpc (set-locale [code : String] : Void)
   (set-locale! code)
-  (state-set! locale code)
+  (state-set! backend-locale code)
   (void))
 
 ;; ---- transports ----
