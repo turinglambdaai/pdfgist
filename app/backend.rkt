@@ -195,7 +195,7 @@
 ;; ---- RPCs ----
 
 ;; Ensures the config directory exists; cheap warm-up for hosts.
-(define-rpc (init : Void)
+(define-rpc (initialize : Void)
   (make-directory* (config-dir-path))
   (void))
 

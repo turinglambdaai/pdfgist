@@ -203,7 +203,7 @@
 
 ;; ---- RPC surface ----
 
-(define-values (init-result _) (call "init"))
+(define-values (init-result _) (call "initialize"))
 (check-true (void? init-result))
 
 ;; Presets are the src/types.ts table, zh labels, needs-key policy.
