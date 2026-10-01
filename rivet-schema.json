@@ -1,0 +1,676 @@
+{
+  "device-rpcs": [],
+  "enums": [
+    {
+      "cases": [
+        "page",
+        "selection",
+        "doc"
+      ],
+      "name": "SummarizeMode"
+    },
+    {
+      "cases": [
+        "zh",
+        "zh-hant",
+        "en",
+        "ja",
+        "ko",
+        "fr",
+        "de",
+        "es"
+      ],
+      "name": "TargetLanguage"
+    }
+  ],
+  "events": [
+    {
+      "name": "stream-chunk",
+      "type": {
+        "kind": "record",
+        "name": "StreamChunk"
+      }
+    },
+    {
+      "name": "stream-done",
+      "type": {
+        "kind": "record",
+        "name": "StreamDone"
+      }
+    },
+    {
+      "name": "stream-error",
+      "type": {
+        "kind": "record",
+        "name": "StreamError"
+      }
+    }
+  ],
+  "format": "rivet-schema",
+  "format-version": 1,
+  "records": [
+    {
+      "fields": [
+        {
+          "name": "id",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        },
+        {
+          "name": "label",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        },
+        {
+          "name": "base-url",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        },
+        {
+          "name": "default-model",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        },
+        {
+          "name": "needs-key",
+          "type": {
+            "kind": "scalar",
+            "name": "Bool"
+          }
+        }
+      ],
+      "name": "ProviderPreset"
+    },
+    {
+      "fields": [
+        {
+          "name": "path",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        },
+        {
+          "name": "page",
+          "type": {
+            "kind": "scalar",
+            "name": "Int64"
+          }
+        },
+        {
+          "name": "scroll-ratio-scaled",
+          "type": {
+            "kind": "scalar",
+            "name": "Int64"
+          }
+        },
+        {
+          "name": "last-read-ms",
+          "type": {
+            "kind": "scalar",
+            "name": "Int64"
+          }
+        }
+      ],
+      "name": "RecentEntry"
+    },
+    {
+      "fields": [
+        {
+          "name": "provider",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        },
+        {
+          "name": "base-url",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        },
+        {
+          "name": "model",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        },
+        {
+          "name": "target-language",
+          "type": {
+            "kind": "record",
+            "name": "TargetLanguage"
+          }
+        },
+        {
+          "name": "view-mode",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        },
+        {
+          "name": "annotation-sidecar",
+          "type": {
+            "kind": "scalar",
+            "name": "Bool"
+          }
+        }
+      ],
+      "name": "SettingsUpdate"
+    },
+    {
+      "fields": [
+        {
+          "name": "provider",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        },
+        {
+          "name": "base-url",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        },
+        {
+          "name": "model",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        },
+        {
+          "name": "target-language",
+          "type": {
+            "kind": "record",
+            "name": "TargetLanguage"
+          }
+        },
+        {
+          "name": "view-mode",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        },
+        {
+          "name": "annotation-sidecar",
+          "type": {
+            "kind": "scalar",
+            "name": "Bool"
+          }
+        },
+        {
+          "name": "has-api-key",
+          "type": {
+            "kind": "scalar",
+            "name": "Bool"
+          }
+        },
+        {
+          "name": "recent",
+          "type": {
+            "element": {
+              "kind": "record",
+              "name": "RecentEntry"
+            },
+            "kind": "list"
+          }
+        }
+      ],
+      "name": "SettingsView"
+    },
+    {
+      "fields": [
+        {
+          "name": "request-id",
+          "type": {
+            "kind": "scalar",
+            "name": "Int64"
+          }
+        },
+        {
+          "name": "delta",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        },
+        {
+          "name": "is-reasoning",
+          "type": {
+            "kind": "scalar",
+            "name": "Bool"
+          }
+        }
+      ],
+      "name": "StreamChunk"
+    },
+    {
+      "fields": [
+        {
+          "name": "request-id",
+          "type": {
+            "kind": "scalar",
+            "name": "Int64"
+          }
+        }
+      ],
+      "name": "StreamDone"
+    },
+    {
+      "fields": [
+        {
+          "name": "request-id",
+          "type": {
+            "kind": "scalar",
+            "name": "Int64"
+          }
+        },
+        {
+          "name": "message",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        }
+      ],
+      "name": "StreamError"
+    },
+    {
+      "fields": [
+        {
+          "name": "request-id",
+          "type": {
+            "kind": "scalar",
+            "name": "Int64"
+          }
+        }
+      ],
+      "name": "StreamStart"
+    },
+    {
+      "fields": [
+        {
+          "name": "ok",
+          "type": {
+            "kind": "scalar",
+            "name": "Bool"
+          }
+        },
+        {
+          "name": "error",
+          "type": {
+            "element": {
+              "kind": "scalar",
+              "name": "String"
+            },
+            "kind": "optional"
+          }
+        },
+        {
+          "name": "models",
+          "type": {
+            "element": {
+              "element": {
+                "kind": "scalar",
+                "name": "String"
+              },
+              "kind": "list"
+            },
+            "kind": "optional"
+          }
+        }
+      ],
+      "name": "TestResult"
+    }
+  ],
+  "rpcs": [
+    {
+      "arguments": [
+        {
+          "name": "context-text",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        },
+        {
+          "name": "context-label",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        },
+        {
+          "name": "history",
+          "type": {
+            "element": {
+              "element": {
+                "kind": "scalar",
+                "name": "String"
+              },
+              "kind": "list"
+            },
+            "kind": "list"
+          }
+        },
+        {
+          "name": "user-message",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        }
+      ],
+      "name": "chat",
+      "result": {
+        "kind": "record",
+        "name": "StreamStart"
+      }
+    },
+    {
+      "arguments": [
+        {
+          "name": "pdf-path",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        },
+        {
+          "name": "sidecar",
+          "type": {
+            "kind": "scalar",
+            "name": "Bool"
+          }
+        }
+      ],
+      "name": "get-annotations",
+      "result": {
+        "kind": "scalar",
+        "name": "Bytes"
+      }
+    },
+    {
+      "arguments": [],
+      "name": "get-recents",
+      "result": {
+        "element": {
+          "kind": "record",
+          "name": "RecentEntry"
+        },
+        "kind": "list"
+      }
+    },
+    {
+      "arguments": [],
+      "name": "get-settings",
+      "result": {
+        "kind": "record",
+        "name": "SettingsView"
+      }
+    },
+    {
+      "arguments": [],
+      "name": "initialize",
+      "result": {
+        "kind": "scalar",
+        "name": "Void"
+      }
+    },
+    {
+      "arguments": [],
+      "name": "list-presets",
+      "result": {
+        "element": {
+          "kind": "record",
+          "name": "ProviderPreset"
+        },
+        "kind": "list"
+      }
+    },
+    {
+      "arguments": [
+        {
+          "name": "key",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        }
+      ],
+      "name": "save-api-key",
+      "result": {
+        "kind": "scalar",
+        "name": "Void"
+      }
+    },
+    {
+      "arguments": [
+        {
+          "name": "update",
+          "type": {
+            "kind": "record",
+            "name": "SettingsUpdate"
+          }
+        }
+      ],
+      "name": "save-settings",
+      "result": {
+        "kind": "record",
+        "name": "SettingsView"
+      }
+    },
+    {
+      "arguments": [
+        {
+          "name": "pdf-path",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        },
+        {
+          "name": "sidecar",
+          "type": {
+            "kind": "scalar",
+            "name": "Bool"
+          }
+        },
+        {
+          "name": "data",
+          "type": {
+            "kind": "scalar",
+            "name": "Bytes"
+          }
+        }
+      ],
+      "name": "set-annotations",
+      "result": {
+        "kind": "scalar",
+        "name": "Void"
+      }
+    },
+    {
+      "arguments": [
+        {
+          "name": "code",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        }
+      ],
+      "name": "set-locale",
+      "result": {
+        "kind": "scalar",
+        "name": "Void"
+      }
+    },
+    {
+      "arguments": [
+        {
+          "name": "text",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        }
+      ],
+      "name": "split-paragraphs",
+      "result": {
+        "element": {
+          "kind": "scalar",
+          "name": "String"
+        },
+        "kind": "list"
+      }
+    },
+    {
+      "arguments": [
+        {
+          "name": "request-id",
+          "type": {
+            "kind": "scalar",
+            "name": "Int64"
+          }
+        }
+      ],
+      "name": "stop-stream",
+      "result": {
+        "kind": "scalar",
+        "name": "Void"
+      }
+    },
+    {
+      "arguments": [
+        {
+          "name": "text",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        },
+        {
+          "name": "mode",
+          "type": {
+            "kind": "record",
+            "name": "SummarizeMode"
+          }
+        }
+      ],
+      "name": "summarize-text",
+      "result": {
+        "kind": "record",
+        "name": "StreamStart"
+      }
+    },
+    {
+      "arguments": [
+        {
+          "name": "base-url",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        },
+        {
+          "name": "api-key",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        },
+        {
+          "name": "model",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        }
+      ],
+      "name": "test-connection",
+      "result": {
+        "kind": "record",
+        "name": "TestResult"
+      }
+    },
+    {
+      "arguments": [
+        {
+          "name": "text",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        },
+        {
+          "name": "target",
+          "type": {
+            "kind": "record",
+            "name": "TargetLanguage"
+          }
+        }
+      ],
+      "name": "translate-text",
+      "result": {
+        "kind": "record",
+        "name": "StreamStart"
+      }
+    },
+    {
+      "arguments": [
+        {
+          "name": "path",
+          "type": {
+            "kind": "scalar",
+            "name": "String"
+          }
+        },
+        {
+          "name": "page",
+          "type": {
+            "kind": "scalar",
+            "name": "Int64"
+          }
+        },
+        {
+          "name": "scroll-ratio-scaled",
+          "type": {
+            "kind": "scalar",
+            "name": "Int64"
+          }
+        }
+      ],
+      "name": "update-recents",
+      "result": {
+        "kind": "scalar",
+        "name": "Void"
+      }
+    }
+  ],
+  "rvt-protocol": 1,
+  "states": [
+    {
+      "name": "backend-locale",
+      "type": {
+        "kind": "scalar",
+        "name": "String"
+      }
+    }
+  ]
+}

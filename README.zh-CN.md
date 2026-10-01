@@ -1,5 +1,7 @@
 # PDFGist
 
+> **Rivet 重建（本分支）：** 正在以 [Rivet](https://github.com/turinglambdaai/rivet) 重建——一份 Racket 领域核心通过类型化 RPC 驱动各平台第一方原生宿主（见 AGENTS.md）。下文描述的旧栈是已归档的 `main` 线，仅作行为与视觉参照。
+
 本地优先的 AI PDF 阅读器，翻译与总结开箱即用——接入你自己的大模型 API。兼容任何 OpenAI 协议端点：OpenAI、DeepSeek、Kimi、硅基流动、Ollama（本地）等。基于 Tauri 2 + PDF.js 构建。
 
 ![license](https://img.shields.io/badge/license-AGPL--3.0-blue) ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey) ![built with](https://img.shields.io/badge/built%20with-Tauri%202-orange)
