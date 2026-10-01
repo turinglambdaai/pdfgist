@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-/// Right AI sidebar: 翻译 / 总结 / 对话 / 批注 / 设置 — the five v1 tabs.
+/// Right AI sidebar: 翻译 / 总结 / 对话 / 批注 / 表单 / 设置 — the six v1 tabs.
 struct AISidebar: View {
     @EnvironmentObject private var model: PDFGistModel
 
@@ -28,6 +28,7 @@ struct AISidebar: View {
         case .summarize: return L10n.t("ui.tab.summarize")
         case .chat: return L10n.t("ui.tab.chat")
         case .notes: return L10n.t("ui.tab.notes")
+        case .forms: return L10n.t("ui.tab.forms")
         case .settings: return L10n.t("ui.tab.settings")
         }
     }
@@ -46,6 +47,12 @@ struct AISidebar: View {
         case .notes:
             if let tab = model.activeTab {
                 NotesPane(tab: tab)
+            } else {
+                EmptyHint(L10n.t("ui.need.document"))
+            }
+        case .forms:
+            if let tab = model.activeTab {
+                FormsPane(tab: tab)
             } else {
                 EmptyHint(L10n.t("ui.need.document"))
             }

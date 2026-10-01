@@ -280,7 +280,7 @@ final class GistPDFView: PDFView {
 // MARK: - main model
 
 enum AITab: String, CaseIterable, Identifiable {
-    case translate, summarize, chat, notes, settings
+    case translate, summarize, chat, notes, forms, settings
     var id: String { rawValue }
 }
 
@@ -429,6 +429,15 @@ private final class EventRelay {
                     async let recents = api.get_recents()
                     let (s, p, r) = try await (settings, presets, recents)
                     await relay.ready(settings: s, presets: p, recents: r)
+                    // Open-on-launch stands in for v1's file association. This
+                    // rides on an env var because the bare SwiftPM binary
+                    // creates no window when launched with a positional
+                    // argument; the Windows/Linux hosts wire their own
+                    // launch/association convention.
+                    if let launch = ProcessInfo.processInfo.environment["PDFGIST_OPEN"],
+                       launch.lowercased().hasSuffix(".pdf") {
+                        await self.openPath(launch)
+                    }
                 } catch {
                     await relay.fail(String(describing: error))
                 }
