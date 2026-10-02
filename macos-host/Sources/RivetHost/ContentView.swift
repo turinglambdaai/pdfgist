@@ -94,6 +94,10 @@ struct ToolbarRow: View {
                 model.toggleBookmark()
             }
             .disabled(model.activeTab == nil)
+            toolbarIcon("printer", active: false) {
+                model.printActive()
+            }
+            .disabled(model.activeTab == nil)
             toolbarIcon("sparkles", active: model.aiVisible) {
                 model.aiVisible.toggle()
             }
@@ -593,7 +597,7 @@ struct BottomBar: View {
                     .font(.system(size: 12))
                     .foregroundStyle(Theme.textFaint)
                 Spacer()
-                bottomButton("minus.magnifyingglass") { tab.zoomOut() }
+                bottomIcon("minus.magnifyingglass") { tab.zoomOut() }
                 Button {
                     tab.zoomReset()
                 } label: {
@@ -603,7 +607,7 @@ struct BottomBar: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Theme.textDim)
-                bottomButton("plus.magnifyingglass") { tab.zoomIn() }
+                bottomIcon("plus.magnifyingglass") { tab.zoomIn() }
                 bottomButton(L10n.t("ui.viewer.fit")) { tab.fitWidth() }
             }
             .padding(.horizontal, 12)
@@ -622,6 +626,15 @@ struct BottomBar: View {
         Button(action: action) {
             Text(label)
                 .font(.system(size: 12))
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Theme.textDim)
+    }
+
+    private func bottomIcon(_ symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 11))
         }
         .buttonStyle(.plain)
         .foregroundStyle(Theme.textDim)

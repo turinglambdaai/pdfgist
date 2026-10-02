@@ -23,6 +23,8 @@ struct PDFGistApp: App {
                     .keyboardShortcut("f")
                 Button(L10n.t("ui.toolbar.bookmark")) { HostActions.toggleBookmark?() }
                     .keyboardShortcut("b")
+                Button(L10n.t("ui.toolbar.print")) { HostActions.printDocument?() }
+                    .keyboardShortcut("p")
                 Divider()
                 Button(L10n.t("ui.toolbar.tab-close")) {
                     if HostActions.closeTab?() == true {} // ⌘W itself is handled by the event monitor

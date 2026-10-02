@@ -14,6 +14,7 @@ enum HostActions {
     nonisolated(unsafe) static var closeTab: (() -> Bool)?
     nonisolated(unsafe) static var zoomIn: (() -> Void)?
     nonisolated(unsafe) static var zoomOut: (() -> Void)?
+    nonisolated(unsafe) static var printDocument: (() -> Void)?
 }
 
 // MARK: - annotation storage types (JSON schema of racket/pdfgist/annotations.rkt)
@@ -455,6 +456,7 @@ private final class EventRelay {
         }
         HostActions.toggleBookmark = { [weak self] in self?.toggleBookmark() }
         HostActions.closeTab = { [weak self] in self?.closeActiveTab() ?? false }
+        HostActions.printDocument = { [weak self] in self?.printActive() }
         HostActions.zoomIn = { [weak self] in self?.activeTab?.zoomIn() }
         HostActions.zoomOut = { [weak self] in self?.activeTab?.zoomOut() }
     }
@@ -573,6 +575,13 @@ private final class EventRelay {
     func closeActiveTab() -> Bool {
         guard let id = activeTabID else { return false }
         return closeTab(id)
+    }
+
+    func printActive() {
+        guard let doc = activeTab?.document,
+              let op = doc.printOperation(for: .shared, scalingMode: .pageScaleDownToFit, autoRotate: true)
+        else { return }
+        op.run()
     }
 
     func pageChanged(_ tab: PDFTab) {
