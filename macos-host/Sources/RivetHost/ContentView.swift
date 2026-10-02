@@ -98,6 +98,16 @@ struct ToolbarRow: View {
                 model.printActive()
             }
             .disabled(model.activeTab == nil)
+            toolbarIcon("speaker.wave.2", active: model.ttsSpeaking) {
+                model.toggleTTS()
+            }
+            .disabled(model.activeTab == nil)
+            if let tab = model.activeTab {
+                SplitToggle(tab: tab)
+            } else {
+                toolbarIcon("rectangle.split.2x1", active: false) {}
+                    .disabled(true)
+            }
             toolbarIcon("sparkles", active: model.aiVisible) {
                 model.aiVisible.toggle()
             }
@@ -372,20 +382,39 @@ struct CenterPane: View {
 
     var body: some View {
         if let tab = model.activeTab {
-            ZStack(alignment: .top) {
-                PDFViewport(tab: tab)
-                    .ignoresSafeArea()
-                    .background(Theme.bg)
-                if model.findVisible {
-                    FindBarView()
-                        .padding(.top, 8)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            CenteredDocument(tab: tab)
         } else {
             WelcomeView()
         }
+    }
+}
+
+/// Document area. Observes the tab directly so tab-level state (splitOn)
+/// re-renders it — the environment model alone does not.
+private struct CenteredDocument: View {
+    @ObservedObject var tab: PDFTab
+    @EnvironmentObject private var model: PDFGistModel
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            HStack(alignment: .top, spacing: 0) {
+                PDFViewport(tab: tab)
+                    .ignoresSafeArea()
+                    .background(Theme.bg)
+                if tab.splitOn {
+                    Divider().overlay(Theme.border)
+                    SplitViewport(tab: tab)
+                        .ignoresSafeArea()
+                        .background(Theme.panelAlt)
+                }
+            }
+            if model.findVisible {
+                FindBarView()
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -445,6 +474,27 @@ struct FindBarView: View {
 }
 
 // MARK: - welcome / empty state
+
+/// Split-view toolbar toggle. Observes the tab so the active state tracks
+/// tab.splitOn (the environment model does not republish tab-level changes).
+private struct SplitToggle: View {
+    @ObservedObject var tab: PDFTab
+
+    var body: some View {
+        Button {
+            tab.splitOn.toggle()
+        } label: {
+            Image(systemName: "rectangle.split.2x1")
+                .font(.system(size: 13))
+                .frame(width: 26, height: 24)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(tab.splitOn ? Theme.accent : Theme.textDim)
+        .background(
+            RoundedRectangle(cornerRadius: 5)
+                .fill(tab.splitOn ? Theme.accentSoft : Color.clear))
+    }
+}
 
 struct WelcomeView: View {
     @EnvironmentObject private var model: PDFGistModel

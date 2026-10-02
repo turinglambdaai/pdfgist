@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import AVFoundation
 import PDFKit
 import UniformTypeIdentifiers
 import RivetEmbedding
@@ -15,6 +16,7 @@ enum HostActions {
     nonisolated(unsafe) static var zoomIn: (() -> Void)?
     nonisolated(unsafe) static var zoomOut: (() -> Void)?
     nonisolated(unsafe) static var printDocument: (() -> Void)?
+    nonisolated(unsafe) static var toggleTTS: (() -> Void)?
 }
 
 // MARK: - annotation storage types (JSON schema of racket/pdfgist/annotations.rkt)
@@ -137,6 +139,7 @@ final class PDFTab: ObservableObject, Identifiable {
     let path: String
     let title: String
     let pdfView: GistPDFView
+    let splitPdfView: GistPDFView
     weak var model: PDFGistModel?
 
     @Published var pageCount = 0
@@ -145,6 +148,7 @@ final class PDFTab: ObservableObject, Identifiable {
     @Published var isBookmarked = false
     @Published var docData = DocData.empty
     @Published var outline: [OutlineNode] = []
+    @Published var splitOn = false
 
     var resumePage = 1
     var didInitialLayout = false
@@ -163,6 +167,16 @@ final class PDFTab: ObservableObject, Identifiable {
         view.displaysPageBreaks = true
         view.document = document
         self.pdfView = view
+        // Split mirror (v1 viewer-split): shares the document, has no
+        // toolbar state of its own, only follows the main view's scroll.
+        let split = GistPDFView()
+        split.minScaleFactor = 0.4
+        split.maxScaleFactor = 4.0
+        split.autoScales = false
+        split.displayMode = view.displayMode
+        split.displaysPageBreaks = true
+        split.document = document
+        self.splitPdfView = split
         view.hostTab = self
         self.pageCount = document.pageCount
     }
@@ -303,6 +317,18 @@ struct PasswordPrompt: Identifiable {
     let continuation: CheckedContinuation<String?, Never>
 }
 
+final class TTSDelegate: NSObject, AVSpeechSynthesizerDelegate {
+    weak var model: PDFGistModel?
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        Task { @MainActor [weak self] in self?.model?.ttsSpeaking = false }
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        Task { @MainActor [weak self] in self?.model?.ttsSpeaking = false }
+    }
+}
+
 @MainActor
 final class PDFGistModel: ObservableObject {
 @MainActor
@@ -341,6 +367,7 @@ private final class EventRelay {
     @Published var alertText = ""
     @Published var passwordPrompt: PasswordPrompt?
     @Published var dropActive = false
+    @Published var ttsSpeaking = false
 
     // AI state
     @Published var translateCards: [StreamCard] = []
@@ -457,6 +484,7 @@ private final class EventRelay {
         HostActions.toggleBookmark = { [weak self] in self?.toggleBookmark() }
         HostActions.closeTab = { [weak self] in self?.closeActiveTab() ?? false }
         HostActions.printDocument = { [weak self] in self?.printActive() }
+        HostActions.toggleTTS = { [weak self] in self?.toggleTTS() }
         HostActions.zoomIn = { [weak self] in self?.activeTab?.zoomIn() }
         HostActions.zoomOut = { [weak self] in self?.activeTab?.zoomOut() }
     }
@@ -582,6 +610,31 @@ private final class EventRelay {
               let op = doc.printOperation(for: .shared, scalingMode: .pageScaleDownToFit, autoRotate: true)
         else { return }
         op.run()
+    }
+
+    // MARK: TTS (read the current page aloud — v1 main.ts toggleTTS)
+
+    private let synthesizer = AVSpeechSynthesizer()
+    private lazy var ttsDelegate = TTSDelegate()
+
+    func toggleTTS() {
+        if ttsSpeaking {
+            synthesizer.stopSpeaking(at: .immediate)
+            ttsSpeaking = false
+            return
+        }
+        guard let page = activeTab?.pdfView.currentPage, let raw = page.string else { return }
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else {
+            alert(L10n.t("ui.tts.empty"))
+            return
+        }
+        synthesizer.delegate = ttsDelegate
+        let utterance = AVSpeechUtterance(string: String(text.prefix(20000)))
+        utterance.voice = AVSpeechSynthesisVoice(language: "zh-CN")
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate
+        synthesizer.speak(utterance)
+        ttsSpeaking = true
     }
 
     func pageChanged(_ tab: PDFTab) {
