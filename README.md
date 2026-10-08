@@ -2,7 +2,7 @@
 
 A local-first PDF reader with AI translation and summarization built in — bring your own API key. Works with any OpenAI-compatible endpoint: OpenAI, DeepSeek, Kimi, SiliconFlow, Ollama (local), and more. Built with Tauri 2 + PDF.js.
 
-![license](https://img.shields.io/badge/license-AGPL--3.0-blue) ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey) ![built with](https://img.shields.io/badge/built%20with-Tauri%202-orange)
+![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey) ![built with](https://img.shields.io/badge/built%20with-Tauri%202-orange) [![License](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 
 **English** · [中文](README.zh-CN.md)
 
