@@ -2,7 +2,7 @@
 
 本地优先的 AI PDF 阅读器，翻译与总结开箱即用——接入你自己的大模型 API。兼容任何 OpenAI 协议端点：OpenAI、DeepSeek、Kimi、硅基流动、Ollama（本地）等。基于 Tauri 2 + PDF.js 构建。
 
-![license](https://img.shields.io/badge/license-AGPL--3.0-blue) ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey) ![built with](https://img.shields.io/badge/built%20with-Tauri%202-orange)
+![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey) ![built with](https://img.shields.io/badge/built%20with-Tauri%202-orange) [![License](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 
 [English](README.md) · **中文**
 
