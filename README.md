@@ -1,10 +1,15 @@
 # PDFGist
 
+<<<<<<< HEAD
 > A local-first AI PDF reader — bring your own model. Built on [Rivet](https://github.com/turinglambdaai/rivet): one Racket domain core driving first-party native hosts over typed RPC.
+=======
+A local-first PDF reader with AI translation and summarization built in — bring your own API key. Works with any OpenAI-compatible endpoint: OpenAI, DeepSeek, Kimi, SiliconFlow, Ollama (local), and more. Built with Tauri 2 + PDF.js.
+
+>>>>>>> 9cf3ec1 (Unify README head with family template)
 
 **English** · [中文](README.zh-CN.md)
 
-![license](https://img.shields.io/badge/license-AGPL--3.0-blue) ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey) ![built with](https://img.shields.io/badge/built%20with-Rivet-blue)
+![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey) ![built with](https://img.shields.io/badge/built%20with-Rivet-blue) [![License](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 
 Most AI PDF apps lock you into their subscription. PDFGist takes the opposite approach: the app is a thin, fast reader, and the intelligence is whatever model *you* point it at. Your key, your model, your cost — stored locally, sent directly to the provider you choose. Nothing leaves your machine except the requests you make to your own provider.
 
