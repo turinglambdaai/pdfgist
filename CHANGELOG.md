@@ -10,7 +10,7 @@ The v1 (Tauri) line's history lives in git tags and GitHub Releases on `main`.
 
 - Full rebuild on Rivet: one Racket domain core (`racket/`, `app/backend.rkt`)
   driving first-party native hosts over typed RPC (RVT1). The Tauri 2 + PDF.js
-  stack has been removed from this branch; v1 remains on `main` for reference.
+  stack has been removed; v1 remains in git history and v1.x tags for reference.
   Parity carried over: AI streaming (translate/summarize/chat), annotations &
   bookmarks, recents, settings, AcroForm filling, printing, TTS, split view,
   and page-level editing (delete / rotate / insert blank / extract / merge /
