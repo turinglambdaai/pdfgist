@@ -24,6 +24,7 @@
          racket/list
          rivet/backend
          (prefix-in llm: "../racket/pdfgist/llm.rkt")
+         (prefix-in pdfedit: "../racket/pdfgist/pdfedit.rkt")
          (prefix-in prompts: "../racket/pdfgist/prompts.rkt")
          (prefix-in recents: "../racket/pdfgist/recents.rkt")
          "../racket/pdfgist/annotations.rkt"
@@ -358,6 +359,55 @@
   (set-locale! code)
   (state-set! backend-locale code)
   (void))
+
+;; ---- page-level editing (issue #1: the domain layer owns PDF surgery;
+;; hosts render and save, never reimplement) ----
+
+(define-record EditTextBox
+  ([page : Int64]
+   [x-ratio-milli : Int64]   ; 0..1000
+   [y-ratio-milli : Int64]
+   [text : String]
+   [size : Int64]))          ; points
+
+;; All editors take the source path (backend reads the bytes) and return
+;; the edited document as bytes — the host decides where to save them.
+(define-rpc (edit-delete-pages [path : String] [pages : (List Int64)] : Bytes)
+  (pdfedit:edit-delete-pages (file->bytes path) pages))
+
+(define-rpc (edit-rotate-pages [path : String]
+                               [pages : (List Int64)]
+                               [delta : Int64]
+                               : Bytes)
+  (pdfedit:edit-rotate-pages (file->bytes path) pages delta))
+
+(define-rpc (edit-insert-blank-after [path : String] [page : Int64] : Bytes)
+  (pdfedit:edit-insert-blank-after (file->bytes path) page))
+
+(define-rpc (edit-extract-pages [path : String] [pages : (List Int64)] : Bytes)
+  (pdfedit:edit-extract-pages (file->bytes path) pages))
+
+(define-rpc (edit-append-doc [path : String] [other-path : String] : Bytes)
+  (pdfedit:edit-append-doc (file->bytes path) (file->bytes other-path)))
+
+(define-rpc (edit-bake-text [path : String]
+                            [watermark-text : String]
+                            [watermark-size : Int64]
+                            [watermark-opacity-milli : Int64]
+                            [boxes : (List EditTextBox)]
+                            : Bytes)
+  (pdfedit:edit-bake-text (file->bytes path)
+                          #:watermark-text watermark-text
+                          #:watermark-size watermark-size
+                          #:watermark-opacity-milli watermark-opacity-milli
+                          #:boxes
+                          (map (λ (b) (pdfedit:edit-box
+                                       (record-ref b 'page)
+                                       (record-ref b 'x-ratio-milli)
+                                       (record-ref b 'y-ratio-milli)
+                                       (record-ref b 'text)
+                                       (record-ref b 'size)))
+                               boxes)))
 
 ;; ---- transports ----
 

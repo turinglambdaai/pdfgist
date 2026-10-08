@@ -30,6 +30,21 @@ public enum TargetLanguage: String, Sendable {
     case es = "es"
 }
 
+public struct EditTextBox: Sendable {
+    public let page: Int64
+    public let x_ratio_milli: Int64
+    public let y_ratio_milli: Int64
+    public let text: String
+    public let size: Int64
+    public init(page: Int64, x_ratio_milli: Int64, y_ratio_milli: Int64, text: String, size: Int64) {
+        self.page = page
+        self.x_ratio_milli = x_ratio_milli
+        self.y_ratio_milli = y_ratio_milli
+        self.text = text
+        self.size = size
+    }
+}
+
 public struct ProviderPreset: Sendable {
     public let id: String
     public let label: String
@@ -146,8 +161,11 @@ private func encode__List_String_(_ v: [String]) -> RivetValue { .list(v.map(enc
 private func encode__List_List_String_(_ v: [[String]]) -> RivetValue { .list(v.map(encode__List_String_)) }
 private func encode_Int64(_ v: Int64) -> RivetValue { .int64(v) }
 private func encode_StreamStart(_ v: StreamStart) -> RivetValue { .list([encode_Int64(v.request_id)]) }
-private func encode_Bool(_ v: Bool) -> RivetValue { .bool(v) }
 private func encode_Bytes(_ v: Data) -> RivetValue { .bytes(v) }
+private func encode_EditTextBox(_ v: EditTextBox) -> RivetValue { .list([encode_Int64(v.page), encode_Int64(v.x_ratio_milli), encode_Int64(v.y_ratio_milli), encode_String(v.text), encode_Int64(v.size)]) }
+private func encode__List_EditTextBox_(_ v: [EditTextBox]) -> RivetValue { .list(v.map(encode_EditTextBox)) }
+private func encode__List_Int64_(_ v: [Int64]) -> RivetValue { .list(v.map(encode_Int64)) }
+private func encode_Bool(_ v: Bool) -> RivetValue { .bool(v) }
 private func encode_RecentEntry(_ v: RecentEntry) -> RivetValue { .list([encode_String(v.path), encode_Int64(v.page), encode_Int64(v.scroll_ratio_scaled), encode_Int64(v.last_read_ms)]) }
 private func encode__List_RecentEntry_(_ v: [RecentEntry]) -> RivetValue { .list(v.map(encode_RecentEntry)) }
 private func encode_TargetLanguage(_ v: TargetLanguage) -> RivetValue { .string(v.rawValue) }
@@ -169,8 +187,11 @@ private func decode__List_String_(_ v: RivetValue) throws -> [String] { guard ca
 private func decode__List_List_String_(_ v: RivetValue) throws -> [[String]] { guard case .list(let xs) = v else { throw RivetGeneratedError.typeMismatch("(List (List String))") }; return try xs.map(decode__List_String_) }
 private func decode_Int64(_ v: RivetValue) throws -> Int64 { guard case .int64(let x) = v else { throw RivetGeneratedError.typeMismatch("Int64") }; return x }
 private func decode_StreamStart(_ v: RivetValue) throws -> StreamStart { guard case .list(let xs) = v, xs.count == 1 else { throw RivetGeneratedError.typeMismatch("StreamStart") }; return StreamStart(request_id: try decode_Int64(xs[0])) }
-private func decode_Bool(_ v: RivetValue) throws -> Bool { guard case .bool(let x) = v else { throw RivetGeneratedError.typeMismatch("Bool") }; return x }
 private func decode_Bytes(_ v: RivetValue) throws -> Data { guard case .bytes(let x) = v else { throw RivetGeneratedError.typeMismatch("Bytes") }; return x }
+private func decode_EditTextBox(_ v: RivetValue) throws -> EditTextBox { guard case .list(let xs) = v, xs.count == 5 else { throw RivetGeneratedError.typeMismatch("EditTextBox") }; return EditTextBox(page: try decode_Int64(xs[0]), x_ratio_milli: try decode_Int64(xs[1]), y_ratio_milli: try decode_Int64(xs[2]), text: try decode_String(xs[3]), size: try decode_Int64(xs[4])) }
+private func decode__List_EditTextBox_(_ v: RivetValue) throws -> [EditTextBox] { guard case .list(let xs) = v else { throw RivetGeneratedError.typeMismatch("(List EditTextBox)") }; return try xs.map(decode_EditTextBox) }
+private func decode__List_Int64_(_ v: RivetValue) throws -> [Int64] { guard case .list(let xs) = v else { throw RivetGeneratedError.typeMismatch("(List Int64)") }; return try xs.map(decode_Int64) }
+private func decode_Bool(_ v: RivetValue) throws -> Bool { guard case .bool(let x) = v else { throw RivetGeneratedError.typeMismatch("Bool") }; return x }
 private func decode_RecentEntry(_ v: RivetValue) throws -> RecentEntry { guard case .list(let xs) = v, xs.count == 4 else { throw RivetGeneratedError.typeMismatch("RecentEntry") }; return RecentEntry(path: try decode_String(xs[0]), page: try decode_Int64(xs[1]), scroll_ratio_scaled: try decode_Int64(xs[2]), last_read_ms: try decode_Int64(xs[3])) }
 private func decode__List_RecentEntry_(_ v: RivetValue) throws -> [RecentEntry] { guard case .list(let xs) = v else { throw RivetGeneratedError.typeMismatch("(List RecentEntry)") }; return try xs.map(decode_RecentEntry) }
 private func decode_TargetLanguage(_ v: RivetValue) throws -> TargetLanguage { guard case .string(let x) = v, let result = TargetLanguage(rawValue: x) else { throw RivetGeneratedError.typeMismatch("TargetLanguage") }; return result }
@@ -209,6 +230,30 @@ public struct RivetAPI: Sendable {
     public func chat(context_text: String, context_label: String, history: [[String]], user_message: String) async throws -> StreamStart {
         let result = try await client.call("chat", arguments: [encode_String(context_text), encode_String(context_label), encode__List_List_String_(history), encode_String(user_message)])
         return try decode_StreamStart(result)
+    }
+    public func edit_append_doc(path: String, other_path: String) async throws -> Data {
+        let result = try await client.call("edit-append-doc", arguments: [encode_String(path), encode_String(other_path)])
+        return try decode_Bytes(result)
+    }
+    public func edit_bake_text(path: String, watermark_text: String, watermark_size: Int64, watermark_opacity_milli: Int64, boxes: [EditTextBox]) async throws -> Data {
+        let result = try await client.call("edit-bake-text", arguments: [encode_String(path), encode_String(watermark_text), encode_Int64(watermark_size), encode_Int64(watermark_opacity_milli), encode__List_EditTextBox_(boxes)])
+        return try decode_Bytes(result)
+    }
+    public func edit_delete_pages(path: String, pages: [Int64]) async throws -> Data {
+        let result = try await client.call("edit-delete-pages", arguments: [encode_String(path), encode__List_Int64_(pages)])
+        return try decode_Bytes(result)
+    }
+    public func edit_extract_pages(path: String, pages: [Int64]) async throws -> Data {
+        let result = try await client.call("edit-extract-pages", arguments: [encode_String(path), encode__List_Int64_(pages)])
+        return try decode_Bytes(result)
+    }
+    public func edit_insert_blank_after(path: String, page: Int64) async throws -> Data {
+        let result = try await client.call("edit-insert-blank-after", arguments: [encode_String(path), encode_Int64(page)])
+        return try decode_Bytes(result)
+    }
+    public func edit_rotate_pages(path: String, pages: [Int64], delta: Int64) async throws -> Data {
+        let result = try await client.call("edit-rotate-pages", arguments: [encode_String(path), encode__List_Int64_(pages), encode_Int64(delta)])
+        return try decode_Bytes(result)
     }
     public func get_annotations(pdf_path: String, sidecar: Bool) async throws -> Data {
         let result = try await client.call("get-annotations", arguments: [encode_String(pdf_path), encode_Bool(sidecar)])

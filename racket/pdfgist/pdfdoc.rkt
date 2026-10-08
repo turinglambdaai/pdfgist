@@ -787,7 +787,8 @@
 
 ;; Insert a blank page (same size as the target page) after 1-based `page`.
 (define (pdf-insert-blank-after! doc page)
-  (define refs (pdf-page-refs doc))
+  (let ((page (if (exact-integer? page) page (inexact->exact page))))
+   (define refs (pdf-page-refs doc))
   (define total (length refs))
   (unless (and (>= page 1) (<= page total))
     (raise (pdf-error 'pages "page out of range")))
@@ -810,7 +811,7 @@
             (list page-ref)
             (drop refs page)))
   (put-object! doc (cons (add1 next-num) 0) blank-page)
-  (rebuild-page-tree! doc refs2))
+  (rebuild-page-tree! doc refs2)))
 
 ;; Rebuild a flat /Pages tree with the given page refs; fixes /Parent.
 (define (rebuild-page-tree! doc page-refs)
@@ -841,7 +842,8 @@
   (for ((p (in-list sorted)))
     (unless (and (>= p 1) (<= p total))
       (raise (pdf-error 'pages (format "page ~a out of range" p)))))
-  (define chosen (for/list ((p (in-list sorted))) (list-ref refs (sub1 p))))
+  (define chosen
+    (for/list ((p (in-list sorted))) (list-ref refs (sub1 (inexact->exact p)))))
   (define new-objects (make-hash))
   (define (copy v)
     (cond

@@ -17,6 +17,17 @@ enum HostActions {
     nonisolated(unsafe) static var zoomOut: (() -> Void)?
     nonisolated(unsafe) static var printDocument: (() -> Void)?
     nonisolated(unsafe) static var toggleTTS: (() -> Void)?
+    nonisolated(unsafe) static var pageEdit: ((PageEditOp) -> Void)?
+}
+
+/// v1 editor.ts operations. In-memory like v1: the source file on disk is
+/// never touched; extract/bake go through a save panel.
+enum PageEditOp {
+    case deleteCurrent
+    case rotateCurrent
+    case insertBlankAfterCurrent
+    case extract(pages: [Int64])
+    case merge(path: String)
 }
 
 // MARK: - annotation storage types (JSON schema of racket/pdfgist/annotations.rkt)
@@ -442,13 +453,14 @@ private final class EventRelay {
             let relay = EventRelay(self)
             self.backend = backend
             status = "Starting embedded Racket CS…"
-            Task.detached { [backend, relay] in
+            Task.detached { [backend, relay, weak self] in
                 do {
                     try backend.start { name, value in
                         guard let event = try? RivetEvent.decode(name: name, value: value) else { return }
                         Task { @MainActor in relay.receive(event) }
                     }
                     let api = RivetAPI(client: backend.client)
+                    await MainActor.run { self?.apiRef = api }
                     try await api.initialize()
                     // Backend error strings follow the host locale.
                     try? await api.set_locale(code: L10n.language)
@@ -464,7 +476,7 @@ private final class EventRelay {
                     // launch/association convention.
                     if let launch = ProcessInfo.processInfo.environment["PDFGIST_OPEN"],
                        launch.lowercased().hasSuffix(".pdf") {
-                        await self.openPath(launch)
+                        await self?.openPath(launch)
                     }
                 } catch {
                     await relay.fail(String(describing: error))
@@ -485,6 +497,7 @@ private final class EventRelay {
         HostActions.closeTab = { [weak self] in self?.closeActiveTab() ?? false }
         HostActions.printDocument = { [weak self] in self?.printActive() }
         HostActions.toggleTTS = { [weak self] in self?.toggleTTS() }
+        HostActions.pageEdit = { [weak self] op in self?.runPageEdit(op) }
         HostActions.zoomIn = { [weak self] in self?.activeTab?.zoomIn() }
         HostActions.zoomOut = { [weak self] in self?.activeTab?.zoomOut() }
     }
@@ -610,6 +623,77 @@ private final class EventRelay {
               let op = doc.printOperation(for: .shared, scalingMode: .pageScaleDownToFit, autoRotate: true)
         else { return }
         op.run()
+    }
+
+    // MARK: page-level editing (backend owns the PDF surgery — issue #1)
+
+    func runPageEdit(_ op: PageEditOp) {
+        Task { await runPageEditAsync(op) }
+    }
+
+    private func runPageEditAsync(_ op: PageEditOp) async {
+        guard let tab = activeTab, let api = apiRef else { return }
+        let page = Int64(tab.currentPage)
+        do {
+            let data: Data
+            switch op {
+            case .deleteCurrent:
+                data = try await api.edit_delete_pages(path: tab.path, pages: [page])
+            case .rotateCurrent:
+                data = try await api.edit_rotate_pages(path: tab.path, pages: [page], delta: 90)
+            case .insertBlankAfterCurrent:
+                data = try await api.edit_insert_blank_after(path: tab.path, page: page)
+            case .extract(let pages):
+                let bytes = try await api.edit_extract_pages(path: tab.path, pages: pages)
+                try await saveEditResult(bytes,
+                                         defaultName: extractName(tab.title))
+                return
+            case .merge(let otherPath):
+                data = try await api.edit_append_doc(path: tab.path, other_path: otherPath)
+            }
+            reloadTabDocument(tab, data: data)
+        } catch let e as ClientError {
+            if case .backend(let message) = e {
+                alert(L10n.t("ui.pages.edit-failed", message))
+            } else {
+                alert(L10n.t("ui.pages.edit-failed", String(describing: e)))
+            }
+        } catch {
+            alert(L10n.t("ui.pages.edit-failed", String(describing: error)))
+        }
+    }
+
+    /// Replace the tab's in-memory document (v1 pdf.reloadBytes parity):
+    /// same tab, selection/scroll reset, source file untouched on disk.
+    func reloadTabDocument(_ tab: PDFTab, data: Data) {
+        guard let newDoc = PDFDocument(data: data) else {
+            alert(L10n.t("ui.pages.edit-failed", "unreadable result"))
+            return
+        }
+        tab.pdfView.document = newDoc
+        tab.splitPdfView.document = newDoc
+        tab.pageCount = newDoc.pageCount
+        tab.goToPage(1)
+        tab.refreshBookmarkFlag()
+    }
+
+    private func extractName(_ title: String) -> String {
+        let stem = title.replacingOccurrences(
+            of: "\\.pdf$", with: "", options: [.regularExpression, .caseInsensitive])
+        return stem + L10n.t("ui.pages.extract-suffix") + ".pdf"
+    }
+
+    func saveEditResult(_ data: Data, defaultName: String) async {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.pdf]
+        panel.nameFieldStringValue = defaultName
+        let response = await panel.beginSheetModal(for: NSApp.mainWindow!)
+        guard response == .OK, let url = panel.url else { return }
+        do {
+            try data.write(to: url)
+        } catch {
+            alert(L10n.t("ui.pages.save-failed", error.localizedDescription))
+        }
     }
 
     // MARK: TTS (read the current page aloud — v1 main.ts toggleTTS)
