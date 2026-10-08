@@ -4,7 +4,7 @@
 
 **English** · [中文](README.zh-CN.md)
 
-![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey) ![built with](https://img.shields.io/badge/built%20with-Rivet-blue) [![License](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
+![platform](https://img.shields.io/badge/platform-macOS%2014%2B%20%28Apple%20silicon%29-lightgrey) ![built with](https://img.shields.io/badge/built%20with-Rivet-blue) [![License](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 
 Most AI PDF apps lock you into their subscription. PDFGist takes the opposite approach: the app is a thin, fast reader, and the intelligence is whatever model *you* point it at. Your key, your model, your cost — stored locally, sent directly to the provider you choose. Nothing leaves your machine except the requests you make to your own provider.
 
@@ -30,8 +30,11 @@ One Racket domain core (`racket/` + `app/backend.rkt`) owns all business logic �
 | Host | Stack | Directory |
 |---|---|---|
 | macOS | SwiftUI + generated client | `macos-host/` |
-| Windows | C++/WinRT + generated client | `windows/` |
-| Linux | GTK4 + generated client | `linux/` |
+| Windows | C++/WinRT + generated client | `windows/` (under construction) |
+| Linux | GTK4 + generated client | `linux/` (under construction) |
+
+1.0 ships the macOS host; the Windows and Linux hosts are being brought to
+parity and are not part of this release.
 
 PDF page-level operations run on the domain core's own minimal PDF reader/writer (`racket/pdfgist/pdfdoc.rkt`) — no external PDF libraries.
 

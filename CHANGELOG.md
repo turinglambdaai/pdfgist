@@ -6,7 +6,12 @@ The v1 (Tauri) line's history lives in git tags and GitHub Releases on `main`.
 
 ## [Unreleased]
 
-### Changed
+## 1.0.0 - 2026-10-08
+
+First release of the Rivet line. macOS (Apple silicon, macOS 14+);
+the Windows and Linux hosts are under construction.
+
+### Added
 
 - Full rebuild on Rivet: one Racket domain core (`racket/`, `app/backend.rkt`)
   driving first-party native hosts over typed RPC (RVT1). The Tauri 2 + PDF.js
@@ -20,3 +25,5 @@ The v1 (Tauri) line's history lives in git tags and GitHub Releases on `main`.
   plain-text extraction) rendered by WKWebView in the host with the v1
   reading typography, TOC navigation, whole-book search, font-size
   control and the chapter-scoped AI workflow.
+- Drag-to-Applications DMG installer with SHA256SUMS and build-provenance
+  attestation.
