@@ -1,11 +1,6 @@
 # PDFGist
 
-<<<<<<< HEAD
 > A local-first AI PDF reader — bring your own model. Built on [Rivet](https://github.com/turinglambdaai/rivet): one Racket domain core driving first-party native hosts over typed RPC.
-=======
-A local-first PDF reader with AI translation and summarization built in — bring your own API key. Works with any OpenAI-compatible endpoint: OpenAI, DeepSeek, Kimi, SiliconFlow, Ollama (local), and more. Built with Tauri 2 + PDF.js.
-
->>>>>>> 9cf3ec1 (Unify README head with family template)
 
 **English** · [中文](README.zh-CN.md)
 

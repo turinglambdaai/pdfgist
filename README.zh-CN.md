@@ -1,11 +1,6 @@
 # PDFGist
 
-<<<<<<< HEAD
 > 本地优先的 AI PDF 阅读器——接入你自己的大模型。基于 [Rivet](https://github.com/turinglambdaai/rivet) 构建：一份 Racket 领域核心，通过类型化 RPC 驱动各平台第一方原生宿主。
-=======
-本地优先的 AI PDF 阅读器，翻译与总结开箱即用——接入你自己的大模型 API。兼容任何 OpenAI 协议端点：OpenAI、DeepSeek、Kimi、硅基流动、Ollama（本地）等。基于 Tauri 2 + PDF.js 构建。
-
->>>>>>> e96156b (Unify README head with family template)
 
 [English](README.md) · **中文**
 
