@@ -11,6 +11,7 @@
          json
          racket/list
          racket/path
+         racket/runtime-path
          racket/string
          racket/tcp
          rackunit
@@ -291,6 +292,41 @@
 (check-equal? (list-ref (car recents-after-clamp) 0) "/f/clamp.pdf")
 (check-equal? (list-ref (car recents-after-clamp) 1) 1)
 (check-equal? (list-ref (car recents-after-clamp) 2) 100000)
+
+;; ---- epub (domain parse over the channel) ----
+
+(define-runtime-path sample-epub "fixtures/sample.epub")
+(define epub-path (path->string (build-path temp-config "book.epub")))
+(copy-file sample-epub epub-path #t)
+
+(define-values (epub-view _e16) (call "epub-open" epub-path))
+;; record shape: (title chapters (toc-items...))
+(check-equal? (list-ref epub-view 0) "The Sample Book")
+(check-equal? (list-ref epub-view 1) 2)
+(define epub-toc (list-ref epub-view 2))
+(check-equal? (length epub-toc) 3)
+
+(define-values (epub-html _e17) (call "epub-chapter-html" epub-path 1))
+(check-true (and (regexp-match? #"First Chapter" epub-html) #t))
+(check-false (and (regexp-match? #"<script" epub-html) #t))
+
+(define-values (epub-text _e18) (call "epub-chapter-text" epub-path 2))
+(check-true (string-contains? epub-text "The quick brown fox"))
+
+(define-values (epub-doc _e19) (call "epub-doc-text" epub-path 12 24000))
+(check-true (string-contains? epub-doc "--- 第 1 章 ---"))
+
+;; the guide.epub the live host was opening when requests stalled
+(define guide-src "/var/folders/y5/qjmwcjr92fb3_6wzf7vwwrhr0000gn/T/guide.epub")
+(when (file-exists? guide-src)
+  (define guide-path (path->string (build-path temp-config "guide.epub")))
+  (copy-file guide-src guide-path #t)
+  (define-values (guide-view _e20) (call "epub-open" guide-path))
+  (check-equal? (list-ref guide-view 0) "Rivet Field Guide")
+  (define-values (guide-html _e21) (call "epub-chapter-html" guide-path 2))
+  (check-true (and (regexp-match? #"RVT1" guide-html) #t))
+  (define-values (guide-text _e22) (call "epub-chapter-text" guide-path 2))
+  (check-true (string-contains? guide-text "milli-units")))
 
 ;; ---- split-paragraphs ----
 

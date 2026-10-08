@@ -129,6 +129,9 @@ struct ToolbarRow: View {
                 ForEach(model.tabs) { tab in
                     TabChip(tab: tab)
                 }
+                if let epub = model.epubTab {
+                    EpubTabChip(tab: epub)
+                }
             }
         }
     }
@@ -158,6 +161,45 @@ struct ToolbarRow: View {
         .background(
             RoundedRectangle(cornerRadius: 5)
                 .fill(active ? Theme.accentSoft : Color.clear))
+    }
+}
+
+struct EpubTabChip: View {
+    @EnvironmentObject private var model: PDFGistModel
+    @ObservedObject var tab: EpubTab
+
+    var body: some View {
+        let active = model.epubActive
+        HStack(spacing: 4) {
+            Image(systemName: "book")
+                .font(.system(size: 10))
+                .foregroundStyle(active ? Theme.accent : Theme.textFaint)
+            Text(tab.title)
+                .font(.system(size: 12))
+                .lineLimit(1)
+                .frame(maxWidth: 150)
+                .truncationMode(.middle)
+            Button {
+                model.closeEpub()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(active ? Theme.textDim : Theme.textFaint)
+                    .frame(width: 14, height: 14)
+            }
+            .buttonStyle(.plain)
+            .help(L10n.t("ui.toolbar.tab-close"))
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { model.activateEpub() }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 5)
+                .fill(active ? Theme.accentSoft : Theme.panelAlt))
+        .overlay(
+            RoundedRectangle(cornerRadius: 5)
+                .stroke(active ? Theme.accentBorder : Theme.border))
     }
 }
 
@@ -323,7 +365,13 @@ struct LeftPanel: View {
 
     @ViewBuilder
     private var panelContent: some View {
-        if model.activeTab == nil {
+        if model.epubActive, let epub = model.epubTab {
+            if model.leftPanelMode == 1 {
+                EpubTocList(tab: epub)
+            } else {
+                EpubTocList(tab: epub)
+            }
+        } else if model.activeTab == nil {
             emptyHint
         } else if model.leftPanelMode == 0 {
             VStack(spacing: 0) {
@@ -437,7 +485,9 @@ struct CenterPane: View {
     @EnvironmentObject private var model: PDFGistModel
 
     var body: some View {
-        if let tab = model.activeTab {
+        if model.epubActive, let epub = model.epubTab {
+            EpubViewport(tab: epub)
+        } else if let tab = model.activeTab {
             CenteredDocument(tab: tab)
         } else {
             WelcomeView()
@@ -549,6 +599,60 @@ private struct SplitToggle: View {
         .background(
             RoundedRectangle(cornerRadius: 5)
                 .fill(tab.splitOn ? Theme.accentSoft : Color.clear))
+    }
+}
+
+/// EPUB table of contents (domain-provided spine mapping).
+struct EpubTocList: View {
+    @EnvironmentObject private var model: PDFGistModel
+    @ObservedObject var tab: EpubTab
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 1) {
+                if tab.toc.isEmpty {
+                    Text(L10n.t("ui.epub.toc-empty"))
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.textFaint)
+                        .padding(10)
+                }
+                ForEach(Array(tab.toc.enumerated()), id: \.offset) { _, item in
+                    Button {
+                        tab.goToChapter(Int(item.chapter))
+                    } label: {
+                        Text(item.title)
+                            .font(.system(size: 12))
+                            .lineLimit(1)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.leading, CGFloat(10 + item.level * 12))
+                            .padding(.vertical, 4)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(
+                        tab.currentPage == Int(item.chapter) ? Theme.accent : Theme.text)
+                }
+                if tab.toc.isEmpty {
+                    ForEach(1...max(1, tab.chapters), id: \.self) { i in
+                        Button {
+                            tab.goToChapter(i)
+                        } label: {
+                            Text(L10n.t("ui.epub.chapter-n", "\(i)"))
+                                .font(.system(size: 12))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.leading, 10)
+                                .padding(.vertical, 4)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(
+                            tab.currentPage == i ? Theme.accent : Theme.text)
+                    }
+                }
+            }
+            .padding(.horizontal, 6)
+            .padding(.top, 4)
+        }
     }
 }
 

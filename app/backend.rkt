@@ -23,6 +23,7 @@
 (require racket/file
          racket/list
          rivet/backend
+         (prefix-in epub: "../racket/pdfgist/epub.rkt")
          (prefix-in llm: "../racket/pdfgist/llm.rkt")
          (prefix-in pdfedit: "../racket/pdfgist/pdfedit.rkt")
          (prefix-in prompts: "../racket/pdfgist/prompts.rkt")
@@ -359,6 +360,44 @@
   (set-locale! code)
   (state-set! backend-locale code)
   (void))
+
+;; ---- EPUB reading (domain parses, hosts render) ----
+
+(define-record EpubTocItem
+  ([title : String]
+   [chapter : Int64]      ; 1-based spine index
+   [level : Int64]))
+
+(define-record EpubView
+  ([title : String]
+   [chapters : Int64]
+   [toc : (List EpubTocItem)]))
+
+(define-rpc (epub-open [path : String] : EpubView)
+  (define book (epub:open-epub (file->bytes path) path))
+  (EpubView
+   (epub:epub-book-title book)
+   (length (epub:epub-book-spine book))
+   (map (λ (t) (EpubTocItem (epub:epub-toc-item-title t)
+                            (epub:epub-toc-item-chapter t)
+                            (epub:epub-toc-item-level t)))
+        (epub:epub-book-toc book))))
+
+;; sanitized chapter body HTML; the host wraps it with the reading CSS
+(define-rpc (epub-chapter-html [path : String] [index : Int64] : Bytes)
+  (epub:epub-chapter-html (epub:open-epub (file->bytes path) path) index))
+
+;; plain chapter text — selection/chapter AI scope and whole-book search
+(define-rpc (epub-chapter-text [path : String] [index : Int64] : String)
+  (epub:epub-chapter-text (epub:open-epub (file->bytes path) path) index))
+
+;; v1 getDocText: first N chapters, each capped, "--- 第 i 章 ---" separators
+(define-rpc (epub-doc-text [path : String]
+                           [max-chapters : Int64]
+                           [cap-chars : Int64]
+                           : String)
+  (epub:epub-doc-text (epub:open-epub (file->bytes path) path)
+                      max-chapters cap-chars))
 
 ;; ---- page-level editing (issue #1: the domain layer owns PDF surgery;
 ;; hosts render and save, never reimplement) ----

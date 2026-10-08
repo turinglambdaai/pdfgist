@@ -45,6 +45,28 @@ public struct EditTextBox: Sendable {
     }
 }
 
+public struct EpubTocItem: Sendable {
+    public let title: String
+    public let chapter: Int64
+    public let level: Int64
+    public init(title: String, chapter: Int64, level: Int64) {
+        self.title = title
+        self.chapter = chapter
+        self.level = level
+    }
+}
+
+public struct EpubView: Sendable {
+    public let title: String
+    public let chapters: Int64
+    public let toc: [EpubTocItem]
+    public init(title: String, chapters: Int64, toc: [EpubTocItem]) {
+        self.title = title
+        self.chapters = chapters
+        self.toc = toc
+    }
+}
+
 public struct ProviderPreset: Sendable {
     public let id: String
     public let label: String
@@ -165,6 +187,9 @@ private func encode_Bytes(_ v: Data) -> RivetValue { .bytes(v) }
 private func encode_EditTextBox(_ v: EditTextBox) -> RivetValue { .list([encode_Int64(v.page), encode_Int64(v.x_ratio_milli), encode_Int64(v.y_ratio_milli), encode_String(v.text), encode_Int64(v.size)]) }
 private func encode__List_EditTextBox_(_ v: [EditTextBox]) -> RivetValue { .list(v.map(encode_EditTextBox)) }
 private func encode__List_Int64_(_ v: [Int64]) -> RivetValue { .list(v.map(encode_Int64)) }
+private func encode_EpubTocItem(_ v: EpubTocItem) -> RivetValue { .list([encode_String(v.title), encode_Int64(v.chapter), encode_Int64(v.level)]) }
+private func encode__List_EpubTocItem_(_ v: [EpubTocItem]) -> RivetValue { .list(v.map(encode_EpubTocItem)) }
+private func encode_EpubView(_ v: EpubView) -> RivetValue { .list([encode_String(v.title), encode_Int64(v.chapters), encode__List_EpubTocItem_(v.toc)]) }
 private func encode_Bool(_ v: Bool) -> RivetValue { .bool(v) }
 private func encode_RecentEntry(_ v: RecentEntry) -> RivetValue { .list([encode_String(v.path), encode_Int64(v.page), encode_Int64(v.scroll_ratio_scaled), encode_Int64(v.last_read_ms)]) }
 private func encode__List_RecentEntry_(_ v: [RecentEntry]) -> RivetValue { .list(v.map(encode_RecentEntry)) }
@@ -191,6 +216,9 @@ private func decode_Bytes(_ v: RivetValue) throws -> Data { guard case .bytes(le
 private func decode_EditTextBox(_ v: RivetValue) throws -> EditTextBox { guard case .list(let xs) = v, xs.count == 5 else { throw RivetGeneratedError.typeMismatch("EditTextBox") }; return EditTextBox(page: try decode_Int64(xs[0]), x_ratio_milli: try decode_Int64(xs[1]), y_ratio_milli: try decode_Int64(xs[2]), text: try decode_String(xs[3]), size: try decode_Int64(xs[4])) }
 private func decode__List_EditTextBox_(_ v: RivetValue) throws -> [EditTextBox] { guard case .list(let xs) = v else { throw RivetGeneratedError.typeMismatch("(List EditTextBox)") }; return try xs.map(decode_EditTextBox) }
 private func decode__List_Int64_(_ v: RivetValue) throws -> [Int64] { guard case .list(let xs) = v else { throw RivetGeneratedError.typeMismatch("(List Int64)") }; return try xs.map(decode_Int64) }
+private func decode_EpubTocItem(_ v: RivetValue) throws -> EpubTocItem { guard case .list(let xs) = v, xs.count == 3 else { throw RivetGeneratedError.typeMismatch("EpubTocItem") }; return EpubTocItem(title: try decode_String(xs[0]), chapter: try decode_Int64(xs[1]), level: try decode_Int64(xs[2])) }
+private func decode__List_EpubTocItem_(_ v: RivetValue) throws -> [EpubTocItem] { guard case .list(let xs) = v else { throw RivetGeneratedError.typeMismatch("(List EpubTocItem)") }; return try xs.map(decode_EpubTocItem) }
+private func decode_EpubView(_ v: RivetValue) throws -> EpubView { guard case .list(let xs) = v, xs.count == 3 else { throw RivetGeneratedError.typeMismatch("EpubView") }; return EpubView(title: try decode_String(xs[0]), chapters: try decode_Int64(xs[1]), toc: try decode__List_EpubTocItem_(xs[2])) }
 private func decode_Bool(_ v: RivetValue) throws -> Bool { guard case .bool(let x) = v else { throw RivetGeneratedError.typeMismatch("Bool") }; return x }
 private func decode_RecentEntry(_ v: RivetValue) throws -> RecentEntry { guard case .list(let xs) = v, xs.count == 4 else { throw RivetGeneratedError.typeMismatch("RecentEntry") }; return RecentEntry(path: try decode_String(xs[0]), page: try decode_Int64(xs[1]), scroll_ratio_scaled: try decode_Int64(xs[2]), last_read_ms: try decode_Int64(xs[3])) }
 private func decode__List_RecentEntry_(_ v: RivetValue) throws -> [RecentEntry] { guard case .list(let xs) = v else { throw RivetGeneratedError.typeMismatch("(List RecentEntry)") }; return try xs.map(decode_RecentEntry) }
@@ -254,6 +282,22 @@ public struct RivetAPI: Sendable {
     public func edit_rotate_pages(path: String, pages: [Int64], delta: Int64) async throws -> Data {
         let result = try await client.call("edit-rotate-pages", arguments: [encode_String(path), encode__List_Int64_(pages), encode_Int64(delta)])
         return try decode_Bytes(result)
+    }
+    public func epub_chapter_html(path: String, index: Int64) async throws -> Data {
+        let result = try await client.call("epub-chapter-html", arguments: [encode_String(path), encode_Int64(index)])
+        return try decode_Bytes(result)
+    }
+    public func epub_chapter_text(path: String, index: Int64) async throws -> String {
+        let result = try await client.call("epub-chapter-text", arguments: [encode_String(path), encode_Int64(index)])
+        return try decode_String(result)
+    }
+    public func epub_doc_text(path: String, max_chapters: Int64, cap_chars: Int64) async throws -> String {
+        let result = try await client.call("epub-doc-text", arguments: [encode_String(path), encode_Int64(max_chapters), encode_Int64(cap_chars)])
+        return try decode_String(result)
+    }
+    public func epub_open(path: String) async throws -> EpubView {
+        let result = try await client.call("epub-open", arguments: [encode_String(path)])
+        return try decode_EpubView(result)
     }
     public func get_annotations(pdf_path: String, sidecar: Bool) async throws -> Data {
         let result = try await client.call("get-annotations", arguments: [encode_String(pdf_path), encode_Bool(sidecar)])

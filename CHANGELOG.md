@@ -15,4 +15,8 @@ The v1 (Tauri) line's history lives in git tags and GitHub Releases on `main`.
   bookmarks, recents, settings, AcroForm filling, printing, TTS, split view,
   and page-level editing (delete / rotate / insert blank / extract / merge /
   watermark & text-box bake) backed by a self-contained Racket PDF reader &
-  writer. EPUB is the one v1 feature not yet ported.
+  writer. EPUB reading is ported too: a domain-core EPUB reader
+  (container/OPF/spine/TOC, sanitized chapter HTML with inlined images,
+  plain-text extraction) rendered by WKWebView in the host with the v1
+  reading typography, TOC navigation, whole-book search, font-size
+  control and the chapter-scoped AI workflow.

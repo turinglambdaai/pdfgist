@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import AVFoundation
 import PDFKit
+import WebKit
 import UniformTypeIdentifiers
 import RivetEmbedding
 import RivetRuntime
@@ -203,10 +204,18 @@ final class PDFTab: ObservableObject, Identifiable {
     }
 
     func zoomIn() {
+        if let epub = model?.epubTab, model?.epubActive == true {
+            epub.applyFontScale(min(2.0, epub.fontScale * 1.1))
+            return
+        }
         pdfView.scaleFactor = min(pdfView.scaleFactor * 1.2, pdfView.maxScaleFactor)
     }
 
     func zoomOut() {
+        if let epub = model?.epubTab, model?.epubActive == true {
+            epub.applyFontScale(max(0.7, epub.fontScale / 1.1))
+            return
+        }
         pdfView.scaleFactor = max(pdfView.scaleFactor / 1.2, pdfView.minScaleFactor)
     }
 
@@ -367,6 +376,9 @@ private final class EventRelay {
 
     @Published var tabs: [PDFTab] = []
     @Published var activeTabID: PDFTab.ID?
+    @Published var epubTab: EpubTab?
+    @Published var epubActive = false
+    @Published var epubTextReady = false
     @Published var leftPanelVisible = false
     @Published var leftPanelMode = 0  // 0 thumbs / 1 outline
     @Published var aiVisible = true
@@ -398,11 +410,15 @@ private final class EventRelay {
     private var streamRegistry: [Int64: StreamCard] = [:]
     private var findTask: Task<Void, Never>?
     private var findHits: [PDFSelection] = []
+    // EPUB whole-book search results (chapter, ordinal) — v1 EpubHit
+    private var epubFindHits: [(chapter: Int, ordinal: Int)] = []
+    private var epubFindQuery = ""
+    private var epubFindHitIndex = 0
 
     private var backend: EmbeddedRacketBackend?
     private var apiRef: RivetAPI?
 
-    var activeTab: PDFTab? { tabs.first { $0.id == activeTabID } }
+    var activeTab: PDFTab? { epubActive ? nil : tabs.first { $0.id == activeTabID } }
 
     var resolvedColorScheme: ColorScheme? {
         switch theme {
@@ -475,7 +491,8 @@ private final class EventRelay {
                     // argument; the Windows/Linux hosts wire their own
                     // launch/association convention.
                     if let launch = ProcessInfo.processInfo.environment["PDFGIST_OPEN"],
-                       launch.lowercased().hasSuffix(".pdf") {
+                       ["pdf", "epub"].contains(
+                        URL(fileURLWithPath: launch).pathExtension.lowercased()) {
                         await self?.openPath(launch)
                     }
                 } catch {
@@ -490,11 +507,16 @@ private final class EventRelay {
     private func installHostActions() {
         HostActions.open = { [weak self] in self?.pickAndOpen() }
         HostActions.find = { [weak self] in
-            guard let self, self.activeTab != nil else { return }
+            guard let self else { return }
+            if self.epubActive {
+                if self.epubTab != nil { self.findVisible = true }
+                return
+            }
+            guard self.activeTab != nil else { return }
             self.findVisible = true
         }
         HostActions.toggleBookmark = { [weak self] in self?.toggleBookmark() }
-        HostActions.closeTab = { [weak self] in self?.closeActiveTab() ?? false }
+        HostActions.closeTab = { [weak self] in self?.closeActiveReader() ?? false }
         HostActions.printDocument = { [weak self] in self?.printActive() }
         HostActions.toggleTTS = { [weak self] in self?.toggleTTS() }
         HostActions.pageEdit = { [weak self] op in self?.runPageEdit(op) }
@@ -557,7 +579,7 @@ private final class EventRelay {
     }
 
     func openDropped(_ urls: [URL]) {
-        guard let url = urls.first(where: { $0.pathExtension.lowercased() == "pdf" }) else { return }
+        guard let url = urls.first(where: { ["pdf", "epub"].contains($0.pathExtension.lowercased()) }) else { return }
         Task { await openPath(url.path) }
     }
 
@@ -566,6 +588,11 @@ private final class EventRelay {
     }
 
     func openPath(_ path: String, resumePage: Int = 1) async {
+        if path.lowercased().hasSuffix(".epub") {
+            await openEpub(path, resumeChapter: resumePage)
+            return
+        }
+        epubActive = false
         if let existing = tabs.first(where: { $0.path == path }) {
             activateTab(existing.id)
             if resumePage > 1 { existing.goToPage(resumePage) }
@@ -593,10 +620,69 @@ private final class EventRelay {
     }
 
     func activateTab(_ id: PDFTab.ID) {
+        epubActive = false
         activeTabID = id
         findVisible = false
         findQuery = ""
         clearFindHighlights()
+    }
+
+    // MARK: EPUB tab lifecycle
+
+    func openEpub(_ path: String, resumeChapter: Int = 1) async {
+        if let existing = epubTab, existing.path == path {
+            epubActive = true
+            if resumeChapter > 1 { existing.goToChapter(resumeChapter) }
+            return
+        }
+        guard let api = apiRef else {
+            alert(L10n.t("ui.backend-not-ready"))
+            return
+        }
+        // one EPUB tab at a time (v1 allowed a mixed tab bar; difference noted)
+        if let old = epubTab { old.teardown() }
+        let title = URL(fileURLWithPath: path).lastPathComponent
+        let config = WKWebViewConfiguration()
+        let view = WKWebView(frame: .zero, configuration: config)
+        view.setValue(false, forKey: "drawsBackground")
+        let tab = EpubTab(path: path, title: title, view: view, model: self)
+        epubTab = tab
+        epubActive = true
+        findVisible = false
+        tab.loadBook(api: api)
+        if resumeChapter > 1 {
+            tab.currentPage = resumeChapter
+        }
+        noteEpubActivity(tab, immediate: true)
+    }
+
+    func activateEpub() {
+        epubActive = true
+    }
+
+    func closeEpub() {
+        if let tab = epubTab {
+            tab.teardown()
+            saveEpubRecentNow(tab)
+        }
+        epubTab = nil
+        epubActive = false
+    }
+
+    func noteEpubChapter(_ tab: EpubTab) {
+        noteEpubActivity(tab)
+    }
+
+    @discardableResult
+    func closeActiveReader() -> Bool {
+        if epubActive, epubTab != nil {
+            closeEpub()
+            return true
+        }
+        if activeTabID != nil {
+            return closeActiveTab()
+        }
+        return false
     }
 
     @discardableResult
@@ -707,6 +793,20 @@ private final class EventRelay {
             ttsSpeaking = false
             return
         }
+        if epubActive, let epub = epubTab {
+            let raw = epubTextSync(epub) // cache-filled by prefetch
+            guard !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                alert(L10n.t("ui.tts.empty"))
+                return
+            }
+            synthesizer.delegate = ttsDelegate
+            let utterance = AVSpeechUtterance(string: String(raw.prefix(20000)))
+            utterance.voice = AVSpeechSynthesisVoice(language: "zh-CN")
+            utterance.rate = AVSpeechUtteranceDefaultSpeechRate
+            synthesizer.speak(utterance)
+            ttsSpeaking = true
+            return
+        }
         guard let page = activeTab?.pdfView.currentPage, let raw = page.string else { return }
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else {
@@ -738,6 +838,34 @@ private final class EventRelay {
     func selectionCleared() {}
 
     // MARK: recents
+
+    // EPUB recents ride the same update-recents RPC with page = chapter.
+    func noteEpubActivity(_ tab: EpubTab, immediate: Bool = false) {
+        tab.recentTask?.cancel()
+        tab.recentTask = Task { [weak self] in
+            if !immediate {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+            }
+            guard !Task.isCancelled else { return }
+            await self?.saveEpubRecent(tab)
+        }
+    }
+
+    private func saveEpubRecent(_ tab: EpubTab) async {
+        guard ready else { return }
+        let pages = max(tab.chapters, 1)
+        let ratio = Int64((Double(tab.currentPage) / Double(pages) * 100_000).rounded())
+        _ = try? await apiRef?.update_recents(
+            path: tab.path, page: Int64(tab.currentPage), scroll_ratio_scaled: ratio)
+        if let recents = try? await apiRef?.get_recents() {
+            self.recents = recents
+        }
+    }
+
+    private func saveEpubRecentNow(_ tab: EpubTab) {
+        tab.recentTask?.cancel()
+        Task { await saveEpubRecent(tab) }
+    }
 
     func noteActivity(_ tab: PDFTab, immediate: Bool = false) {
         tab.recentTask?.cancel()
@@ -942,6 +1070,11 @@ private final class EventRelay {
     }
 
     func selectionText() -> String? {
+        if epubActive, let epub = epubTab {
+            let text = epub.pendingSelection?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            return text.count > 1 ? text : nil
+        }
         guard let tab = activeTab, let selection = tab.pdfView.currentSelection else { return nil }
         let text = selection.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return text.count > 1 ? text : nil
@@ -950,6 +1083,20 @@ private final class EventRelay {
     /// Whole-document context: first 12 pages, 3000 chars each, `--- 第 N 页 ---`
     /// markers — same payload the v1 viewer assembled.
     func docText(_ tab: PDFTab) -> (pages: Int, text: String)? {
+        if epubActive, let epub = epubTab {
+            var parts: [String] = []
+            var used = 0
+            for i in 1...max(1, epub.chapters) {
+                let raw = (epub.textCache[i] ?? "")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if raw.isEmpty { continue }
+                let slice = raw.count > 3000 ? String(raw.prefix(3000)) + "…" : raw
+                parts.append("--- 第 \(i) 章 ---\n\(slice)")
+                used += slice.count
+                if used >= 24_000 { break }
+            }
+            return (epub.chapters, parts.joined(separator: "\n\n"))
+        }
         guard let doc = tab.document, doc.pageCount > 0 else { return nil }
         let n = min(doc.pageCount, 12)
         var parts: [String] = []
@@ -967,6 +1114,16 @@ private final class EventRelay {
     }
 
     func currentPageText() -> (page: Int, text: String)? {
+        if epubActive, let epub = epubTab {
+            let chapter = epub.currentPage
+            var text = (epub.textCache[chapter] ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if text.isEmpty { return nil }
+            if text.count > 8000 {
+                text = String(text.prefix(8000)) + L10n.t("backend.text.truncated")
+            }
+            return (chapter, text)
+        }
         guard let tab = activeTab else { return nil }
         let page = tab.currentPage
         guard var text = pageText(tab, page: page)?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -975,6 +1132,28 @@ private final class EventRelay {
             text = String(text.prefix(8000)) + L10n.t("backend.text.truncated")
         }
         return (page, text)
+    }
+
+    /// Chapter text from the prefetch cache (openEpub fills it; AI, TTS and
+    /// search only ever read).
+    func epubTextSync(_ epub: EpubTab, chapter: Int? = nil) -> String {
+        let ch = chapter ?? epub.currentPage
+        return epub.textCache[ch] ?? ""
+    }
+
+    /// Prefetch every chapter's text SERIALLY so AI actions, TTS and
+    /// whole-book search read from the cache without waiting. Concurrent
+    /// epub RPCs stall on the embedded channel, so this must stay serial.
+    func prefetchEpubText(_ epub: EpubTab) {
+        guard let api = apiRef else { return }
+        Task { [weak self] in
+            for i in 1...max(1, epub.chapters) {
+                if Task.isCancelled { return }
+                let text = (try? await api.epub_chapter_text(path: epub.path, index: Int64(i))) ?? ""
+                await MainActor.run { epub.textCache[i] = text }
+            }
+            await MainActor.run { self?.epubTextReady = true }
+        }
     }
 
     private func relayReady(settings: SettingsView, presets: [ProviderPreset], recents: [RecentEntry]) {
@@ -1076,7 +1255,8 @@ private final class EventRelay {
         let payload = "以下是 PDF 第 \(source.page) 页提取的文本：\n\n\(source.text)"
         startCardStream(
             card: StreamCard(
-                title: L10n.t("ui.translate.page-title", "\(source.page)"), meta: "→ \(lang)",
+                title: epubActive ? L10n.t("ui.epub.translate-title", "\(source.page)")
+                                  : L10n.t("ui.translate.page-title", "\(source.page)"), meta: "→ \(lang)",
                 sourceText: source.text),
             list: \.translateCards) { api in
             try await api.translate_text(text: payload, target: self.settings.target_language)
@@ -1101,7 +1281,8 @@ private final class EventRelay {
             return
         }
         summarize(
-            title: L10n.t("ui.summarize.page-title", "\(source.page)"), meta: "",
+            title: epubActive ? L10n.t("ui.epub.summarize-title", "\(source.page)")
+                                  : L10n.t("ui.summarize.page-title", "\(source.page)"), meta: "",
             text: source.text, mode: .page, list: \.summarizeCards)
     }
 
@@ -1231,6 +1412,10 @@ private final class EventRelay {
     func runFind() {
         findTask?.cancel()
         let query = findQuery
+        if epubActive, let epub = epubTab {
+            runEpubFind(query, epub)
+            return
+        }
         guard let tab = activeTab, !query.isEmpty else {
             findTotal = 0
             findIndex = 0
@@ -1264,7 +1449,44 @@ private final class EventRelay {
 
     func findPrevious() { navigateFind(-1) }
 
+    /// Whole-book search over the prefetched chapter texts (v1 runSearch):
+    /// case-insensitive, per-chapter ordinals, excerpt-free navigation.
+    private func runEpubFind(_ query: String, _ epub: EpubTab) {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        epubFindHits = []
+        epubFindQuery = needle
+        guard !needle.isEmpty else {
+            findTotal = 0
+            findIndex = 0
+            epub.clearHighlights()
+            return
+        }
+        for i in 1...max(1, epub.chapters) {
+            let text = (epub.textCache[i] ?? "").lowercased()
+            var from = text.startIndex
+            var ordinal = 0
+            while let range = text.range(of: needle.lowercased(), range: from..<text.endIndex) {
+                epubFindHits.append((i, ordinal))
+                ordinal += 1
+                from = range.upperBound
+            }
+        }
+        findTotal = epubFindHits.count
+        findIndex = epubFindHits.isEmpty ? 0 : 0
+        if let first = epubFindHits.first {
+            epub.highlightHit(chapter: first.chapter, ordinal: first.ordinal, query: needle)
+        }
+    }
+
     private func navigateFind(_ step: Int) {
+        if epubActive, let epub = epubTab {
+            guard !epubFindHits.isEmpty else { return }
+            epubFindHitIndex = (epubFindHitIndex + step + epubFindHits.count) % epubFindHits.count
+            let hit = epubFindHits[epubFindHitIndex]
+            findIndex = epubFindHitIndex
+            epub.highlightHit(chapter: hit.chapter, ordinal: hit.ordinal, query: epubFindQuery)
+            return
+        }
         guard let tab = activeTab, !findHits.isEmpty else { return }
         findIndex = (findIndex + step + findHits.count) % findHits.count
         tab.pdfView.go(to: findHits[findIndex])
@@ -1274,6 +1496,9 @@ private final class EventRelay {
         findVisible = false
         findQuery = ""
         findTotal = 0
+        epubFindHits = []
+        epubFindHitIndex = 0
+        epubTab?.clearHighlights()
         clearFindHighlights()
     }
 

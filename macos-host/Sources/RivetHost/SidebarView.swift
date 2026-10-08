@@ -37,7 +37,7 @@ struct AISidebar: View {
     private var pane: some View {
         switch model.aiTab {
         case .translate:
-            CardListPane(actionTitle: L10n.t("ui.translate.page"), action: { model.translateCurrentPage() },
+            CardListPane(actionTitle: model.epubActive ? L10n.t("ui.epub.translate-page") : L10n.t("ui.translate.page"), action: { model.translateCurrentPage() },
                          cards: model.translateCards,
                          emptyHint: L10n.t("ui.welcome.feature1"))
         case .summarize:
@@ -138,7 +138,7 @@ struct SummarizePane: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 6) {
-                pillButton(L10n.t("ui.summarize.page")) { model.summarizePage() }
+                pillButton(model.epubActive ? L10n.t("ui.epub.summarize-page") : L10n.t("ui.summarize.page")) { model.summarizePage() }
                 pillButton(L10n.t("ui.summarize.selection")) { model.summarizeSelection() }
                 pillButton(L10n.t("ui.summarize.doc")) { model.summarizeDoc() }
                 Spacer()
@@ -196,7 +196,7 @@ struct ChatPane: View {
             Picker("", selection: Binding(
                 get: { model.chatScope },
                 set: { model.chatScope = $0 })) {
-                Text(L10n.t("ui.chat.scope.page")).tag(0)
+                Text(model.epubActive ? L10n.t("ui.epub.scope-page") : L10n.t("ui.chat.scope.page")).tag(0)
                 Text(L10n.t("ui.chat.scope.selection")).tag(1)
                 Text(L10n.t("ui.chat.scope.doc")).tag(2)
             }

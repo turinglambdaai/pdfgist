@@ -1,0 +1,293 @@
+import SwiftUI
+import WebKit
+import RivetRuntime
+
+/// An open EPUB: metadata from the domain core plus the WKWebView that
+/// renders the whole book (one load, continuous scroll — v1 epub.ts model).
+/// Business (parse/sanitize/text) lives in the Racket backend; this class
+/// only drives presentation state.
+@MainActor
+final class EpubTab: ObservableObject, Identifiable {
+    let id = UUID()
+    let path: String
+    let title: String
+    weak var model: PDFGistModel?
+
+    @Published var chapters: Int = 0
+    @Published var currentPage: Int = 1        // chapter, kept for recents
+    @Published var fontScale: Double = 1.0
+    @Published var toc: [EpubTocItem] = []
+    @Published var loaded = false
+
+    var recentTask: Task<Void, Never>?
+
+    /// Last selection relayed from the web view (mouseup bridge, v1
+    /// onSelection). Consumed by the AI selection actions.
+    var pendingSelection: String?
+
+    /// chapter-text cache for search + repeated AI calls
+    var textCache: [Int: String] = [:]
+    var searchHits: [(chapter: Int, range: Range<String.Index>)] = []
+
+    let webView: WKWebView
+    var navDelegate: WKNavigationDelegate?
+
+    init(path: String, title: String, view: WKWebView, model: PDFGistModel) {
+        self.path = path
+        self.title = title
+        self.webView = view
+        self.model = model
+    }
+
+    /// Strong ownership: WKWebView's delegate property is weak and a
+    /// temporary would deallocate before didFinish fires.
+    func installDelegates() {
+        let delegate = EpubNavDelegate(tab: self)
+        navDelegate = delegate
+        webView.navigationDelegate = delegate
+        webView.configuration.userContentController.add(
+            EpubBridgeHandler(tab: self), name: "bridge")
+    }
+
+    /// Whole-book HTML assembled from sanitized chapter bodies, wrapped in
+    /// the v1 reading typography; chapters are addressable sections.
+    func loadBook(api: RivetAPI) {
+        Task {
+            do {
+                let view = try await api.epub_open(path: path)
+                self.chapters = Int(view.chapters)
+                self.toc = view.toc
+                var sections: [String] = []
+                sections.append("<div class=\"epub-book-title\"><div class=\"book-title-text\">\(Self.escapeHTML(view.title))</div></div>")
+                for i in 1...max(1, Int(view.chapters)) {
+                    let body = try await api.epub_chapter_html(path: path, index: Int64(i))
+                    sections.append(
+                        "<div class=\"epub-chapter\" data-chapter=\"\(i)\">\(String(decoding: body, as: UTF8.self))</div>")
+                    // pull the text in the same tight sequence — spaced-out
+                    // requests on this channel can stall (see rivet issue)
+                    if self.textCache[Int(i)] == nil {
+                        self.textCache[Int(i)] = (try? await api.epub_chapter_text(path: path, index: Int64(i))) ?? ""
+                    }
+                }
+                await MainActor.run { self.model?.epubTextReady = true }
+                let html = Self.pageHTML(sections: sections, theme: model?.theme ?? "system")
+                self.installDelegates()
+                self.webView.loadHTMLString(html, baseURL: nil)
+            } catch let e as ClientError {
+                model?.alert(L10n.t("ui.pages.edit-failed", Self.describe(e)))
+            } catch {
+                model?.alert(L10n.t("ui.pages.edit-failed", String(describing: error)))
+            }
+        }
+    }
+
+    static func describe(_ e: ClientError) -> String {
+        if case .backend(let message) = e { return message }
+        return String(describing: e)
+    }
+
+    // MARK: presentation state pushed into the page
+
+    func applyFontScale(_ scale: Double) {
+        fontScale = scale
+        webView.evaluateJavaScript(
+            "document.documentElement.style.setProperty('--fs', \(scale))", completionHandler: nil)
+    }
+
+    func applyTheme(_ theme: String) {
+        webView.evaluateJavaScript(
+            "document.documentElement.setAttribute('data-theme', \(Self.jsString(theme)))",
+            completionHandler: nil)
+    }
+
+    func goToChapter(_ chapter: Int) {
+        currentPage = max(1, min(chapter, chapters))
+        webView.evaluateJavaScript(
+            """
+            (() => {
+              const el = document.querySelectorAll('.epub-chapter')[\(currentPage - 1)];
+              if (el) el.scrollIntoView({ block: 'start' });
+            })()
+            """, completionHandler: nil)
+    }
+
+    /// Jump to the nth occurrence of `query` (whole-book search, v1 gotoHit):
+    /// chapter index comes from the host-side text search, in-page highlight
+    /// via the marks script.
+    func highlightHit(chapter: Int, ordinal: Int, query: String) {
+        goToChapter(chapter)
+        webView.evaluateJavaScript(
+            """
+            (() => {
+              const root = document.querySelectorAll('.epub-chapter')[\(chapter - 1)];
+              if (!root) return;
+              clearMarks(root);
+              markOccurrence(root, \(Self.jsString(query)), \(ordinal));
+              const mark = root.querySelector('mark.epub-hit');
+              if (mark) mark.scrollIntoView({ block: 'center' });
+            })()
+            """, completionHandler: nil)
+    }
+
+    func clearHighlights() {
+        webView.evaluateJavaScript(
+            "document.querySelectorAll('.epub-chapter').forEach(el => clearMarks(el));",
+            completionHandler: nil)
+    }
+
+    // MARK: static page assets
+
+    static func escapeHTML(_ s: String) -> String {
+        s.replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+    }
+
+    static func jsString(_ s: String) -> String {
+        let escaped = s.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: "\\n")
+        return "\"\(escaped)\""
+    }
+
+    /// v1 READING_CSS typography + theme; the marks helpers power search.
+    static func pageHTML(sections: [String], theme: String) -> String {
+        let css = """
+        :root { --fs: 1; }
+        :root[data-theme="light"] { --fg: #292524; --bg: #F5F2ED; }
+        :root[data-theme="dark"] { --fg: #D6D3D1; --bg: #171412; }
+        html { background: var(--bg); }
+        body { margin: 0; padding: 0 0 40vh; color: var(--fg);
+          font-family: Georgia, "Source Han Serif SC", "Noto Serif SC", "Songti SC", serif;
+          font-size: calc(16px * var(--fs)); line-height: 1.9; }
+        p { margin: 0 0 1em; text-align: justify; }
+        h1, h2, h3, h4 { line-height: 1.35; margin: 1.4em 0 0.6em; }
+        img, svg { max-width: 100%; height: auto; }
+        blockquote { margin: 1em 0; padding-left: 1em; border-left: 3px solid #8884; }
+        a { color: inherit; pointer-events: none; }
+        .epub-book-title { padding: 18vh 8vw 10vh; text-align: center; }
+        .book-title-text { font-size: 2em; font-weight: 700; }
+        .epub-chapter { padding: 0 8vw; }
+        mark.epub-hit { background: #FFD500; color: inherit; }
+        """
+        let script = """
+        function clearMarks(root) {
+          const marks = root.querySelectorAll('mark.epub-hit');
+          marks.forEach(m => {
+            const parent = m.parentNode;
+            parent.replaceChild(document.createTextNode(m.textContent), m);
+            parent.normalize();
+          });
+        }
+        function markOccurrence(root, needle, ordinal) {
+          let count = 0;
+          const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+          const nodes = [];
+          while (walker.nextNode()) nodes.push(walker.currentNode);
+          for (const node of nodes) {
+            const lower = node.nodeValue.toLowerCase();
+            let from = 0, at;
+            while ((at = lower.indexOf(needle.toLowerCase(), from)) !== -1) {
+              if (count === ordinal) {
+                const range = document.createRange();
+                range.setStart(node, at);
+                range.setEnd(node, at + needle.length);
+                const mark = document.createElement('mark');
+                mark.className = 'epub-hit';
+                try { range.surroundContents(mark); } catch (e) {}
+                return;
+              }
+              count += 1;
+              from = at + needle.length;
+            }
+          }
+        }
+        window.addEventListener('mouseup', () => {
+          const sel = window.getSelection();
+          if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+          const text = sel.toString().trim();
+          if (text.length < 2) return;
+          window.webkit.messageHandlers.bridge.postMessage(
+            JSON.stringify({ kind: 'selection', text: text.slice(0, 800) }));
+        });
+        window.addEventListener('scroll', () => {
+          const sections = document.querySelectorAll('.epub-chapter');
+          const line = window.scrollY + window.innerHeight * 0.35;
+          let current = 1;
+          sections.forEach((el, i) => { if (el.offsetTop <= line) current = i + 1; });
+          window.webkit.messageHandlers.bridge.postMessage(
+            JSON.stringify({ kind: 'chapter', chapter: current }));
+        });
+        """
+        let themeAttr = theme == "dark" ? "dark" : (theme == "light" ? "light" : "light")
+        return """
+        <!doctype html><html data-theme="\(themeAttr)"><head><meta charset="utf-8">
+        <style>\(css)</style><script>\(script)</script></head>
+        <body>\(sections.joined(separator: "\n"))</body></html>
+        """
+    }
+
+    /// Retain cycles between the WKWebView config and the tab must be broken
+    /// when the tab closes.
+    func teardown() {
+        webView.configuration.userContentController.removeAllScriptMessageHandlers()
+        webView.navigationDelegate = nil
+    }
+}
+
+extension EpubTab {
+    /// Held strongly by the tab — WKWebView's delegate property is weak and
+    /// an unowned temporary would deallocate before didFinish fires.
+    final class EpubNavDelegate: NSObject, WKNavigationDelegate {
+        weak var tab: EpubTab?
+        init(tab: EpubTab) { self.tab = tab }
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            tab?.loaded = true
+        }
+    }
+}
+
+/// Hosts the tab's long-lived WKWebView. The representable only re-attaches
+/// the view; all state flows through EpubTab.
+struct EpubViewport: NSViewRepresentable {
+    @ObservedObject var tab: EpubTab
+
+    func makeNSView(context: Context) -> WKWebView {
+        tab.webView
+    }
+
+    func updateNSView(_ view: WKWebView, context: Context) {}
+}
+
+extension EpubTab {
+    static func scriptHandler(for tab: EpubTab) -> WKScriptMessageHandler {
+        EpubBridgeHandler(tab: tab)
+    }
+
+    final class EpubBridgeHandler: NSObject, WKScriptMessageHandler {
+        weak var tab: EpubTab?
+        init(tab: EpubTab) { self.tab = tab }
+
+        func userContentController(_ userContentController: WKUserContentController,
+                                   didReceive message: WKScriptMessage) {
+            guard let body = message.body as? String,
+                  let dataObj = body.data(using: .utf8),
+                  let obj = try? JSONSerialization.jsonObject(with: dataObj) as? [String: Any]
+            else { return }
+            Task { @MainActor in
+                guard let tab = self.tab else { return }
+                switch obj["kind"] as? String {
+                case "selection":
+                    tab.pendingSelection = obj["text"] as? String
+                case "chapter":
+                    if let ch = obj["chapter"] as? Int {
+                        tab.currentPage = ch
+                        tab.model?.noteEpubChapter(tab)
+                    }
+                default:
+                    break
+                }
+            }
+        }
+    }
+}

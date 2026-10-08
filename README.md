@@ -11,6 +11,7 @@ Most AI PDF apps lock you into their subscription. PDFGist takes the opposite ap
 ## Features
 
 - **PDF reading** — tabbed documents, continuous scroll, two-page book view, zoom / fit-width, thumbnails, outline, full-text search, dark mode, printing, split view, text-to-speech, keyboard navigation
+- **EPUB reading** — reflowable serif typography, chapter table of contents, whole-book search, font-size control, dark mode, and the same AI workflow on chapters
 - **Page editing** — delete, rotate, insert blank pages, extract a selection into a new file, merge documents, bake watermarks and text boxes (in-memory; your source files are never modified)
 - **Continue where you left off** — recent files keep your page and scroll position; files stay in your folders and sync drives, never copied into an app library
 - **Selection translation** — select any text, one click to translate, streaming result
@@ -47,7 +48,6 @@ raco test racket/          # domain-core tests
 
 ## Roadmap
 
-- [ ] EPUB reading (the v1 Tauri line shipped it; the native hosts are next)
 - [ ] Windows & Linux host builds
 
 ## License
