@@ -1,7 +1,7 @@
 #lang racket/base
 
-;; SSE line semantics and StreamBuffer, ported from src-tauri/src/llm.rs
-;; (the byte-stream loop) and src/sidebar.ts (the StreamBuffer class).
+;; SSE line semantics and StreamBuffer, ported from the v1 (Tauri) llm.rs
+;; byte-stream loop and sidebar.ts StreamBuffer class.
 
 (require json
          racket/string)
@@ -60,7 +60,7 @@
        (list 'delta (hash-ref delta 'reasoning_content) #t)]
       [else '(skip)])))
 
-;; ---- StreamBuffer (port of src/sidebar.ts class StreamBuffer) ----
+;; ---- StreamBuffer (port of the v1 sidebar.ts StreamBuffer class) ----
 ;;
 ;; Accumulates reasoning and answer separately. While streaming, reasoning is
 ;; only a compact "thinking" indicator — raw chain-of-thought is noise for a

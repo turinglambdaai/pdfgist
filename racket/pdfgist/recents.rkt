@@ -1,7 +1,7 @@
 #lang racket/base
 
 ;; Recently-opened files, ported from the RecentFile struct in
-;; src-tauri/src/settings.rs + the upsert in src/main.ts saveRecent:
+;; v1 (Tauri) settings.rs recents shape + the saveRecent upsert:
 ;; newest entry first, deduplicated by path, trimmed to 12.
 ;;
 ;; Storage units (v1 file compatibility): `page` is 1-based, `scroll-ratio`

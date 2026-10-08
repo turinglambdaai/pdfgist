@@ -1,6 +1,6 @@
 #lang racket/base
 
-;; FNV-1a 64-bit, ported byte-for-byte from src-tauri/src/annotations.rs.
+;; FNV-1a 64-bit, byte-for-byte identical to the v1 (Tauri) annotations store.
 ;; The annotation storage key must stay identical across the old (Rust) and
 ;; new (Racket) implementations, so the offset basis, prime, and UTF-8 byte
 ;; iteration order are fixed by cross-version file-name compatibility.

@@ -1,7 +1,7 @@
 #lang racket/base
 
 ;; OpenAI-compatible chat-completions client, ported from
-;; src-tauri/src/llm.rs. Speaks HTTP/1.1 directly (racket/tcp + openssl) so
+;; the v1 (Tauri) llm.rs. Speaks HTTP/1.1 directly (racket/tcp + openssl) so
 ;; the domain core stays pure Racket with no Rivet dependency and no external
 ;; HTTP library. Parity notes:
 ;;  - POST {normalized}/chat/completions with stream:true; GET {normalized}/models

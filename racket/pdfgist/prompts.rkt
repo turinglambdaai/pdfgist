@@ -1,6 +1,6 @@
 #lang racket/base
 
-;; Hardcoded zh prompt templates, ported verbatim from src/sidebar.ts. The
+;; Hardcoded zh prompt templates, verbatim from the v1 (Tauri) sidebar. The
 ;; prompts stay Chinese-only on purpose (parity with the old UI); the target
 ;; language is interpolated into each template. Messages are (cons role
 ;; content) pairs, the core representation consumed by llm.rkt.

@@ -8,7 +8,7 @@
 
 (define chat-completions-suffix "/chat/completions")
 
-;; Ported EXACTLY from src-tauri/src/llm.rs `normalize_base_url` (including its
+;; Byte-for-byte port of the v1 (Tauri) llm.rs `normalize_base_url` (including its
 ;; unit tests): accepts bare hosts, versioned bases (/v1, /v3, /v4, ...) and
 ;; even full chat-completions URLs. A URL already ending in a version segment
 ;; is kept as-is; /v1 is only appended when no version segment exists at all.
@@ -52,7 +52,7 @@
        (for/and ([ch (in-string (substring segment 1))])
          (and (char>=? ch #\0) (char<=? ch #\9)))))
 
-;; Ported from src-tauri/src/llm.rs `truncate_chars`: cut by Unicode scalar
+;; Port of the v1 (Tauri) llm.rs `truncate_chars`: cut by Unicode scalar
 ;; values (Rust `chars`) and append an ellipsis when anything was dropped.
 (define (truncate-chars s max-chars)
   (unless (and (string? s) (exact-nonnegative-integer? max-chars))

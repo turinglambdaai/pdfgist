@@ -1,6 +1,6 @@
 #lang racket/base
 
-;; URL normalization parity: the src-tauri/src/llm.rs unit tests, ported
+;; URL normalization parity: the v1 (Tauri) llm.rs unit tests, ported
 ;; verbatim, plus the historical provider bug cases (GLM /api/paas/v4 and
 ;; Doubao /api/v3 must NOT get /v1 appended).
 

@@ -1,6 +1,6 @@
 #lang racket/base
 
-;; Prompt templates and text helpers: snapshot parity with src/sidebar.ts
+;; Prompt templates and text helpers: snapshot parity with v1 sidebar.ts
 ;; plus behavior tests for paragraph splitting and doc assembly.
 
 (require rackunit

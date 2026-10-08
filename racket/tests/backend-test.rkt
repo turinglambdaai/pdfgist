@@ -206,7 +206,7 @@
 (define-values (init-result _) (call "initialize"))
 (check-true (void? init-result))
 
-;; Presets are the src/types.ts table, zh labels, needs-key policy.
+;; Presets are the v1 types.ts table, zh labels, needs-key policy.
 (define-values (presets preset-events) (call "list-presets"))
 (check-equal? (length presets) 12)
 (check-equal? (map car presets)

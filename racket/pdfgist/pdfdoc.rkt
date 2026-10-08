@@ -939,7 +939,7 @@
 
 ;; -------------------------------------------------------------- baking
 
-;; v1 bake semantics (src/editor.ts bakeText): diagonal watermark centered
+;; v1 bakeText semantics: diagonal watermark centered
 ;; on every page (gray, rotate 45°) + text boxes at ratio coordinates.
 ;; Base-14 Helvetica-Bold; non-latin chars stripped; widths approximated.
 (struct textbox (page x-ratio y-ratio text size) #:transparent)

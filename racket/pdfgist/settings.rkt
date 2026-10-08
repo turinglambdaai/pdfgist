@@ -1,6 +1,6 @@
 #lang racket/base
 
-;; Settings store, ported from src-tauri/src/settings.rs. Same file, same
+;; Settings store, same file and shape as v1 (Tauri settings.rs).
 ;; JSON keys, same defaults (drop-in migration for v1 installs):
 ;;   <config-dir>/settings.json
 ;;     provider: {name, base_url, api_key, model}

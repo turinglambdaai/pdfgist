@@ -1,6 +1,6 @@
 #lang racket/base
 
-;; Annotations store, ported EXACTLY from src-tauri/src/annotations.rs so
+;; Annotations store, byte-for-byte compatible with v1 (Tauri annotations.rs) so
 ;; v1 files keep working (drop-in migration):
 ;;   - path key = FNV-1a 64-bit of the absolute PDF path, 16 lowercase hex
 ;;     chars, file <config-dir>/annotations/<key>.json

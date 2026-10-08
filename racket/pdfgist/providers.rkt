@@ -1,6 +1,6 @@
 #lang racket/base
 
-;; Provider presets and target languages, ported verbatim from src/types.ts
+;; Provider presets and target languages, verbatim from the v1 types.ts
 ;; (PRESETS + LANGUAGES). `label-zh` is the old Chinese-only display name and
 ;; doubles as the fallback when shared/i18n does not carry a "provider.<id>"
 ;; key for the active locale.
@@ -28,7 +28,7 @@
 
 (struct provider-preset (id label-zh base-url models needs-key?) #:transparent)
 
-;; PRESETS from src/types.ts, same order, same ids, same model lists.
+;; PRESETS mirror the v1 types.ts table: same order, same ids, same model lists.
 ;; `needs-key?` is new-stack policy: Ollama runs locally and the custom slot
 ;; may legitimately target a key-less gateway; every hosted provider needs one.
 (define all-provider-presets
@@ -78,7 +78,7 @@
   (define models (provider-preset-models preset))
   (if (null? models) "" (car models)))
 
-;; LANGUAGES from src/types.ts, same order. settings.json stores these
+;; LANGUAGES mirror the v1 types.ts order. settings.json stores these
 ;; display names (settings.rs defaults target_language to 中文).
 (define languages
   (list "中文" "繁體中文" "English" "日本語" "한국어" "Français" "Deutsch" "Español"))
@@ -108,7 +108,7 @@
         (and (string=? (cdr pair) code) (car pair)))
       default-language))
 
-;; Defaults from src-tauri/src/settings.rs (ProviderConfig::default).
+;; Defaults from the v1 (Tauri) ProviderConfig::default.
 (define default-provider-name "deepseek")
 (define default-provider-base-url "https://api.deepseek.com/v1")
 (define default-provider-model "deepseek-chat")

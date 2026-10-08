@@ -2,7 +2,7 @@
 
 ;; FNV-1a 64-bit vectors: published standard vectors, values cross-checked
 ;; against an independent BigInt implementation of the Rust algorithm in
-;; src-tauri/src/annotations.rs, and the {:016x} rendering.
+;; v1 (Tauri) annotations.rs, and the {:016x} rendering.
 
 (require rackunit
          "../pdfgist/fnv.rkt")
