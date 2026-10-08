@@ -1,10 +1,15 @@
 # PDFGist
 
+<<<<<<< HEAD
 > 本地优先的 AI PDF 阅读器——接入你自己的大模型。基于 [Rivet](https://github.com/turinglambdaai/rivet) 构建：一份 Racket 领域核心，通过类型化 RPC 驱动各平台第一方原生宿主。
+=======
+本地优先的 AI PDF 阅读器，翻译与总结开箱即用——接入你自己的大模型 API。兼容任何 OpenAI 协议端点：OpenAI、DeepSeek、Kimi、硅基流动、Ollama（本地）等。基于 Tauri 2 + PDF.js 构建。
+
+>>>>>>> e96156b (Unify README head with family template)
 
 [English](README.md) · **中文**
 
-![license](https://img.shields.io/badge/license-AGPL--3.0-blue) ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey) ![built with](https://img.shields.io/badge/built%20with-Rivet-blue)
+![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey) ![built with](https://img.shields.io/badge/built%20with-Rivet-blue) [![License](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 
 大多数 AI PDF 应用把你锁进它们的订阅。PDFGist 反其道而行：应用本身只是一个轻快的阅读器，智能来自你自己指定的模型。你的 Key、你的模型、你的账单——Key 保存在本机，请求直达你选择的服务商，除此之外没有任何数据离开你的机器。
 
