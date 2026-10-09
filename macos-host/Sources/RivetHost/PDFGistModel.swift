@@ -337,7 +337,12 @@ struct PasswordPrompt: Identifiable {
     let continuation: CheckedContinuation<String?, Never>
 }
 
-final class TTSDelegate: NSObject, AVSpeechSynthesizerDelegate {
+// @unchecked Sendable: newer SDKs infer the conformance for delegate
+// storage, older Swift 6.1 toolchains (Xcode 16.4, the Intel release
+// runner) demand it explicitly and then reject the mutable model
+// reference. Sound by construction — the delegate only touches the
+// model from @MainActor tasks.
+final class TTSDelegate: NSObject, AVSpeechSynthesizerDelegate, @unchecked Sendable {
     weak var model: PDFGistModel?
 
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
