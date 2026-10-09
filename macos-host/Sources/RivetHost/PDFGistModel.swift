@@ -482,38 +482,46 @@ private final class EventRelay {
             let relay = EventRelay(self)
             self.backend = backend
             status = "Starting embedded Racket CS…"
-            Task.detached { [backend, relay, weak self] in
-                do {
-                    try backend.start { name, value in
-                        guard let event = try? RivetEvent.decode(name: name, value: value) else { return }
-                        Task { @MainActor in relay.receive(event) }
-                    }
-                    let api = RivetAPI(client: backend.client)
-                    await MainActor.run { self?.apiRef = api }
-                    try await api.initialize()
-                    // Backend error strings follow the host locale.
-                    try? await api.set_locale(code: L10n.language)
-                    async let settings = api.get_settings()
-                    async let presets = api.list_presets()
-                    async let recents = api.get_recents()
-                    let (s, p, r) = try await (settings, presets, recents)
-                    await relay.ready(settings: s, presets: p, recents: r)
-                    // Open-on-launch stands in for v1's file association. This
-                    // rides on an env var because the bare SwiftPM binary
-                    // creates no window when launched with a positional
-                    // argument; the Windows/Linux hosts wire their own
-                    // launch/association convention.
-                    if let launch = ProcessInfo.processInfo.environment["PDFGIST_OPEN"],
-                       ["pdf", "epub"].contains(
-                        URL(fileURLWithPath: launch).pathExtension.lowercased()) {
-                        await self?.openPath(launch)
-                    }
-                } catch {
-                    await relay.fail(String(describing: error))
-                }
+            // taskly-family start pattern: the embedded runtime handshake is
+            // quick, so start synchronously on the main actor and keep every
+            // use of self inside MainActor-isolated code — no detached-task
+            // captures for older Swift 6 toolchains (the Intel release
+            // runner's Xcode 16.4) to reject as data races.
+            try backend.start { [weak relay] name, value in
+                guard let event = try? RivetEvent.decode(name: name, value: value) else { return }
+                Task { @MainActor in relay?.receive(event) }
             }
+            let api = RivetAPI(client: backend.client)
+            apiRef = api
+            Task { await bootstrap(api, relay: relay) }
         } catch {
             status = "Configuration error: \(error)"
+        }
+    }
+
+    /// Post-start initialization, all on the main actor: locale, the initial
+    /// settings/presets/recents fetches, and open-on-launch (stands in for
+    /// v1's file association via the PDFGIST_OPEN env var — the bare SwiftPM
+    /// binary creates no window when launched with a positional argument;
+    /// the Windows/Linux hosts wire their own launch/association
+    /// convention).
+    private func bootstrap(_ api: RivetAPI, relay: EventRelay) async {
+        do {
+            try await api.initialize()
+            // Backend error strings follow the host locale.
+            try? await api.set_locale(code: L10n.language)
+            async let settings = api.get_settings()
+            async let presets = api.list_presets()
+            async let recents = api.get_recents()
+            let (s, p, r) = try await (settings, presets, recents)
+            relay.ready(settings: s, presets: p, recents: r)
+            if let launch = ProcessInfo.processInfo.environment["PDFGIST_OPEN"],
+               ["pdf", "epub"].contains(
+                URL(fileURLWithPath: launch).pathExtension.lowercased()) {
+                await openPath(launch)
+            }
+        } catch {
+            relay.fail(String(describing: error))
         }
     }
 
