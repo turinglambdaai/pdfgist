@@ -403,7 +403,7 @@ struct LeftPanel: View {
 
 struct RecentRow: View {
     @EnvironmentObject private var model: PDFGistModel
-    let recent: RecentEntry
+    let recent: RivetTypes.RecentEntry
 
     var body: some View {
         Button {
@@ -747,7 +747,7 @@ struct WelcomeView: View {
 
 struct WelcomeRecentRow: View {
     @EnvironmentObject private var model: PDFGistModel
-    let recent: RecentEntry
+    let recent: RivetTypes.RecentEntry
 
     var body: some View {
         Button {

@@ -16,7 +16,7 @@ final class EpubTab: ObservableObject, Identifiable {
     @Published var chapters: Int = 0
     @Published var currentPage: Int = 1        // chapter, kept for recents
     @Published var fontScale: Double = 1.0
-    @Published var toc: [EpubTocItem] = []
+    @Published var toc: [RivetTypes.EpubTocItem] = []
     @Published var loaded = false
 
     var recentTask: Task<Void, Never>?

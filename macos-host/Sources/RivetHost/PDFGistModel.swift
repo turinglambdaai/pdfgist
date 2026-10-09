@@ -356,7 +356,7 @@ private final class EventRelay {
     weak var model: PDFGistModel?
     init(_ model: PDFGistModel) { self.model = model }
     func receive(_ event: RivetEvent) { model?.receive(event) }
-    func ready(settings: SettingsView, presets: [ProviderPreset], recents: [RecentEntry]) {
+    func ready(settings: RivetTypes.SettingsView, presets: [RivetTypes.ProviderPreset], recents: [RivetTypes.RecentEntry]) {
         model?.relayReady(settings: settings, presets: presets, recents: recents)
     }
     func fail(_ message: String) {
@@ -368,11 +368,11 @@ private final class EventRelay {
 
     @Published var ready = false
     @Published var status = ""
-    @Published var settings = SettingsView(
+    @Published var settings = RivetTypes.SettingsView(
         provider: "deepseek", base_url: "", model: "", target_language: .zh,
         view_mode: "single", annotation_sidecar: false, has_api_key: false, recent: [])
-    @Published var presets: [ProviderPreset] = []
-    @Published var recents: [RecentEntry] = []
+    @Published var presets: [RivetTypes.ProviderPreset] = []
+    @Published var recents: [RivetTypes.RecentEntry] = []
 
     @Published var tabs: [PDFTab] = []
     @Published var activeTabID: PDFTab.ID?
@@ -532,7 +532,7 @@ private final class EventRelay {
         HostActions.zoomOut = { [weak self] in self?.activeTab?.zoomOut() }
     }
 
-    private func bootstrap(settings: SettingsView, presets: [ProviderPreset], recents: [RecentEntry]) {
+    private func bootstrap(settings: RivetTypes.SettingsView, presets: [RivetTypes.ProviderPreset], recents: [RivetTypes.RecentEntry]) {
         self.settings = settings
         self.presets = presets
         self.recents = recents
@@ -591,7 +591,7 @@ private final class EventRelay {
         Task { await openPath(url.path) }
     }
 
-    func openRecent(_ entry: RecentEntry) {
+    func openRecent(_ entry: RivetTypes.RecentEntry) {
         Task { await openPath(entry.path, resumePage: Int(entry.page)) }
     }
 
@@ -1164,7 +1164,7 @@ private final class EventRelay {
         }
     }
 
-    private func relayReady(settings: SettingsView, presets: [ProviderPreset], recents: [RecentEntry]) {
+    private func relayReady(settings: RivetTypes.SettingsView, presets: [RivetTypes.ProviderPreset], recents: [RivetTypes.RecentEntry]) {
         self.settings = settings
         self.presets = presets
         self.recents = recents
@@ -1286,7 +1286,7 @@ private final class EventRelay {
 
     // MARK: AI streams
 
-    func languageName(_ code: TargetLanguage) -> String {
+    func languageName(_ code: RivetTypes.TargetLanguage) -> String {
         switch code {
         case .zh: return "中文"
         case .zh_hant: return "繁體中文"
@@ -1326,7 +1326,7 @@ private final class EventRelay {
     private func startCardStream(
         card: StreamCard,
         list: ReferenceWritableKeyPath<PDFGistModel, [StreamCard]>,
-        launch: @escaping @MainActor (RivetAPI) async throws -> StreamStart
+        launch: @escaping @MainActor (RivetAPI) async throws -> RivetTypes.StreamStart
     ) {
         self[keyPath: list].insert(card, at: 0)
         guard let api = apiRef else {
@@ -1385,7 +1385,7 @@ private final class EventRelay {
 
     // summarize ----------------------------------------------------------------
 
-    private func summarize(title: String, meta: String, text: String, mode: SummarizeMode, list: ReferenceWritableKeyPath<PDFGistModel, [StreamCard]>) {
+    private func summarize(title: String, meta: String, text: String, mode: RivetTypes.SummarizeMode, list: ReferenceWritableKeyPath<PDFGistModel, [StreamCard]>) {
         guard ensureProvider(for: list) else { return }
         let lang = languageName(settings.target_language)
         startCardStream(
@@ -1659,10 +1659,10 @@ private final class EventRelay {
 
     func saveSettings(
         provider: String, baseURL: String, model: String,
-        target: TargetLanguage, viewMode: String, sidecar: Bool
+        target: RivetTypes.TargetLanguage, viewMode: String, sidecar: Bool
     ) async -> String {
         guard let api = apiRef else { return "backend not ready" }
-        let update = SettingsUpdate(
+        let update = RivetTypes.SettingsUpdate(
             provider: provider, base_url: baseURL, model: model,
             target_language: target, view_mode: viewMode, annotation_sidecar: sidecar)
         do {

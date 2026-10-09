@@ -29,6 +29,10 @@ Family packaging standard (the taskly v1.3.0 benchmark) applied to PDFGist.
   replaces `PDFGist-v<version>-macos.dmg`.
 - The in-app updater downloads the portable zip and the native installer
   unpacks it with `ditto` (DMG artifacts in a manifest remain supported).
+- **Upstream Rivet alignment.** Rivet main now scopes generated Swift
+  records and enums under `RivetTypes`; the macOS host's call sites were
+  migrated accordingly (`RecentEntry` → `RivetTypes.RecentEntry` and so
+  on). Cold builds of the host fail against the new codegen without this.
 - Release metadata is gated by `scripts/check-release-version.sh`
   (VERSION == rivet.rktd == updater constants == tag) in CI and in every
   release job.

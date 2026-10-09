@@ -11,7 +11,7 @@ struct SettingsPane: View {
     @State private var baseURL = ""
     @State private var modelField = ""
     @State private var apiKey = ""
-    @State private var target: TargetLanguage = .zh
+    @State private var target: RivetTypes.TargetLanguage = .zh
     @State private var viewMode = "single"
     @State private var sidecar = false
     @State private var status = ""
@@ -114,7 +114,7 @@ struct SettingsPane: View {
             Picker("", selection: Binding(
                 get: { target },
                 set: { target = $0 })) {
-                ForEach(TargetLanguage.allCasesArray, id: \.self) { code in
+                ForEach(RivetTypes.TargetLanguage.allCasesArray, id: \.self) { code in
                     Text(languageName(code)).tag(code)
                 }
             }
@@ -196,7 +196,7 @@ struct SettingsPane: View {
         .overlay(RoundedRectangle(cornerRadius: 5).stroke(Theme.border))
     }
 
-    private func languageName(_ code: TargetLanguage) -> String {
+    private func languageName(_ code: RivetTypes.TargetLanguage) -> String {
         model.languageName(code)
     }
 
@@ -264,8 +264,8 @@ struct SettingsPane: View {
     }
 }
 
-extension TargetLanguage {
-    static var allCasesArray: [TargetLanguage] {
+extension RivetTypes.TargetLanguage {
+    static var allCasesArray: [RivetTypes.TargetLanguage] {
         [.zh, .zh_hant, .en, .ja, .ko, .fr, .de, .es]
     }
 
