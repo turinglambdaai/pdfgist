@@ -21,6 +21,7 @@ Most AI PDF apps lock you into their subscription. PDFGist takes the opposite ap
 - **AcroForm filling** — fill text / checkbox / choice fields and export the filled PDF
 - **Annotations & bookmarks** — highlights (three colors), notes, bookmarks stored in a sidecar JSON next to your PDF, ready for cloud-drive sync
 - **Bring your own model** — presets for Zhipu GLM (incl. the GLM Coding plan endpoint), DeepSeek, Moonshot Kimi, Alibaba Qwen, Doubao (Volcano Ark), SiliconFlow and Ollama, or any OpenAI-compatible base URL; model lists fetched on demand
+- **Online updates** — signature-verified self-update (Ed25519-signed release manifest, SHA-256-checked download); checks at most once a day, installs only when you click through
 - **Local-first** — settings and API keys live in your user config directory; no account, no telemetry
 
 ## Architecture
@@ -33,7 +34,7 @@ One Racket domain core (`racket/` + `app/backend.rkt`) owns all business logic �
 | Windows | C++/WinRT + generated client | `windows/` (under construction) |
 | Linux | GTK4 + generated client | `linux/` (under construction) |
 
-1.0 ships the macOS host; the Windows and Linux hosts are being brought to
+The macOS host ships first; the Windows and Linux hosts are being brought to
 parity and are not part of this release.
 
 PDF page-level operations run on the domain core's own minimal PDF reader/writer (`racket/pdfgist/pdfdoc.rkt`) — no external PDF libraries.

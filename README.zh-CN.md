@@ -21,6 +21,7 @@
 - **表单填写**——填写文本/勾选/选择字段，导出填写后的 PDF
 - **批注与书签**——三色高亮、笔记、书签，存放在 PDF 旁的 sidecar JSON 里，天然支持网盘同步
 - **自带模型**——预置智谱 GLM（含 GLM Coding 套餐专属端点）、DeepSeek、Moonshot Kimi、通义千问、豆包（火山方舟）、硅基流动、Ollama，或任意 OpenAI 兼容 Base URL；模型列表按需拉取
+- **在线更新**——签名校验的应用自更新（Ed25519 签名的发布清单 + SHA-256 校验下载）；每天最多静默检查一次，安装始终需你确认
 - **本地优先**——设置与 API Key 保存在用户配置目录；无账号，无遥测
 
 ## 架构
@@ -33,7 +34,7 @@
 | Windows | C++/WinRT + 生成客户端 | `windows/`（建设中） |
 | Linux | GTK4 + 生成客户端 | `linux/`（建设中） |
 
-1.0 先发布 macOS 宿主；Windows 与 Linux 宿主正在向对等推进，不随本版本发布。
+macOS 宿主率先发布；Windows 与 Linux 宿主正在向对等推进，不随本版本发布。
 
 PDF 页级操作由领域核心自研的最小 PDF 读写器（`racket/pdfgist/pdfdoc.rkt`）完成——不依赖任何第三方 PDF 库。
 

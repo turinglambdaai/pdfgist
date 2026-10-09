@@ -42,7 +42,7 @@ raco test racket/          # 领域核心测试（275 项）
 ## 项目结构
 
 ```
-├── rivet.rktd          Rivet 应用清单（1.0.0）
+├── rivet.rktd          Rivet 应用清单（1.1.0）
 ├── rivet-schema.json   RPC 面基线
 ├── app/backend.rkt     Rivet 后端入口（装配领域层）
 ├── racket/             Racket 领域核心（含 pdfdoc PDF 读写器）+ tests/

@@ -6,6 +6,26 @@ The v1 (Tauri) line's history lives in git tags and GitHub Releases on `main`.
 
 ## [Unreleased]
 
+## 1.1.0 - 2026-10-09
+
+Online updates. The app can now check for new releases and update itself.
+
+### Added
+
+- Signature-verified online updates on macOS (File → 检查更新… / Check for
+  Updates, ⌘U): the backend fetches the release channel manifest
+  (`update-stable.json`), verifies its Ed25519 signature and key id
+  (`pdfgist-2026-10`) before parsing, applies channel/version/rollout
+  policy, then downloads the DMG on a background thread with progress
+  reporting and SHA-256 verification against the signed manifest. The host
+  owns installation: mount, replace `/Applications/PDFGist.app` (keeping
+  the previous bundle beside it as a rollback copy), relaunch. A silent
+  launch-time check runs at most once a day; nothing is installed without
+  the user clicking through.
+- Release pipeline now runs `raco rivet release --development` on macOS and
+  publishes the signed channel manifest `update-stable.json` alongside the
+  DMG (SHA256SUMS and build-provenance attestation unchanged).
+
 ## 1.0.0 - 2026-10-08
 
 First release of the Rivet line. macOS (Apple silicon, macOS 14+);

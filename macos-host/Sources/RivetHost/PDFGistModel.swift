@@ -392,6 +392,13 @@ private final class EventRelay {
     @Published var dropActive = false
     @Published var ttsSpeaking = false
 
+    // updater state (backend verifies/downloads; this model polls)
+    @Published var updateState: UpdateState = .idle
+    @Published var showUpdateSheet = false
+    /// metadata of the newest available update (version, size); shown in the sheet
+    @Published var updateInfo: UpdateCheckResult?
+    private var updatePollTimer: Timer?
+
     // AI state
     @Published var translateCards: [StreamCard] = []
     @Published var summarizeCards: [StreamCard] = []
@@ -460,6 +467,7 @@ private final class EventRelay {
     func start() {
         guard backend == nil else { return }
         installHostActions()
+        UpdaterInstaller.cleanupStaleBackup()
 
         do {
             let config = try EmbeddedRacketConfiguration.resolvedDefault(
@@ -1162,6 +1170,118 @@ private final class EventRelay {
         self.recents = recents
         ready = true
         status = ""
+        autoCheckForUpdates()
+    }
+
+    // MARK: updates (payback family pattern: check → download → install)
+
+    /// Silent launch-time check, throttled server-side to once a day;
+    /// only an available update opens the sheet (a failure never nags).
+    private func autoCheckForUpdates() {
+        Task {
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            checkUpdates(throttled: true, present: false)
+        }
+    }
+
+    func checkForUpdates() {
+        checkUpdates(throttled: false, present: true)
+    }
+
+    private func checkUpdates(throttled: Bool, present: Bool) {
+        guard let api = apiRef else {
+            if present {
+                updateState = .error(L10n.t("ui.backend-not-ready"))
+                showUpdateSheet = true
+            }
+            return
+        }
+        Task {
+            do {
+                let data = try await api.check_updates(force: !throttled)
+                let result = try JSONDecoder().decode(UpdateCheckResult.self, from: data)
+                if result.status == "available" && present {
+                    updateInfo = result
+                    updateState = .idle
+                    showUpdateSheet = true
+                } else if result.status == "up-to-date" && present {
+                    updateState = .upToDate
+                    showUpdateSheet = true
+                } else if result.status == "error" && present {
+                    updateState = .error(result.message ?? "unknown error")
+                    showUpdateSheet = true
+                }
+            } catch {
+                if present {
+                    updateState = .error("\(error)")
+                    showUpdateSheet = true
+                }
+            }
+        }
+    }
+
+    func startDownload() {
+        guard let api = apiRef else { return }
+        // optimistic: the first state poll (0.4s) confirms with real progress
+        updateState = UpdateState(phase: "downloading", percent: 0, message: nil,
+                                  downloadedPath: nil,
+                                  availableVersion: updateInfo?.availableVersion)
+        Task {
+            do {
+                _ = try await api.start_download()
+                startPolling()
+            } catch {
+                updateState = .error(Self.cleanError(error))
+                alert(Self.cleanError(error))
+            }
+        }
+    }
+
+    private func startPolling() {
+        updatePollTimer?.invalidate()
+        let timer = Timer(timeInterval: 0.4, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.pollUpdateState() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        updatePollTimer = timer
+        pollUpdateState()
+    }
+
+    private func pollUpdateState() {
+        guard let api = apiRef else { return }
+        Task {
+            do {
+                let data = try await api.update_state()
+                let state = try JSONDecoder().decode(UpdateState.self, from: data)
+                updateState = state
+                if state.phase != "downloading" {
+                    updatePollTimer?.invalidate()
+                    updatePollTimer = nil
+                }
+            } catch {
+                updatePollTimer?.invalidate()
+                updatePollTimer = nil
+            }
+        }
+    }
+
+    func installUpdate() {
+        guard updateState.phase == "downloaded",
+              let path = updateState.downloadedPath else { return }
+        do {
+            try UpdaterInstaller.install(dmgAt: URL(fileURLWithPath: path))
+        } catch {
+            alert(L10n.t("ui.update.install-failed", "\(error)"))
+        }
+    }
+
+    /// RVT1 failures arrive as "...error: <message>"; keep the message.
+    static func cleanError(_ error: Error) -> String {
+        let text = "\(error)"
+        if let range = text.range(of: "error: ") {
+            return String(text[range.upperBound...])
+        }
+        return text
     }
 
     // MARK: AI streams

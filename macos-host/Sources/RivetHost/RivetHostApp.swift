@@ -18,6 +18,10 @@ struct PDFGistApp: App {
                 Button(L10n.t("ui.toolbar.open")) { HostActions.open?() }
                     .keyboardShortcut("o")
             }
+            CommandGroup(after: .newItem) {
+                Button(L10n.t("ui.update.check-menu")) { model.checkForUpdates() }
+                    .keyboardShortcut("u", modifiers: .command)
+            }
             CommandMenu(L10n.t("ui.menu.document")) {
                 Button(L10n.t("ui.toolbar.find")) { HostActions.find?() }
                     .keyboardShortcut("f")

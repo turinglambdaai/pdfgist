@@ -7,8 +7,8 @@ public enum RivetGeneratedConfig {
     public static let moduleName = "backend"
     public static let entryName = "start"
     public static let displayName = "PDFGist"
-    public static let version = "1.2.3"
-    public static let build: Int64 = 1
+    public static let version = "1.1.0"
+    public static let build: Int64 = 2
     public static let identifier = "site.jrtx.pdfgist"
     public static let releaseChannel = "stable"
 }
@@ -183,6 +183,7 @@ private func encode__List_String_(_ v: [String]) -> RivetValue { .list(v.map(enc
 private func encode__List_List_String_(_ v: [[String]]) -> RivetValue { .list(v.map(encode__List_String_)) }
 private func encode_Int64(_ v: Int64) -> RivetValue { .int64(v) }
 private func encode_StreamStart(_ v: StreamStart) -> RivetValue { .list([encode_Int64(v.request_id)]) }
+private func encode_Bool(_ v: Bool) -> RivetValue { .bool(v) }
 private func encode_Bytes(_ v: Data) -> RivetValue { .bytes(v) }
 private func encode_EditTextBox(_ v: EditTextBox) -> RivetValue { .list([encode_Int64(v.page), encode_Int64(v.x_ratio_milli), encode_Int64(v.y_ratio_milli), encode_String(v.text), encode_Int64(v.size)]) }
 private func encode__List_EditTextBox_(_ v: [EditTextBox]) -> RivetValue { .list(v.map(encode_EditTextBox)) }
@@ -190,7 +191,6 @@ private func encode__List_Int64_(_ v: [Int64]) -> RivetValue { .list(v.map(encod
 private func encode_EpubTocItem(_ v: EpubTocItem) -> RivetValue { .list([encode_String(v.title), encode_Int64(v.chapter), encode_Int64(v.level)]) }
 private func encode__List_EpubTocItem_(_ v: [EpubTocItem]) -> RivetValue { .list(v.map(encode_EpubTocItem)) }
 private func encode_EpubView(_ v: EpubView) -> RivetValue { .list([encode_String(v.title), encode_Int64(v.chapters), encode__List_EpubTocItem_(v.toc)]) }
-private func encode_Bool(_ v: Bool) -> RivetValue { .bool(v) }
 private func encode_RecentEntry(_ v: RecentEntry) -> RivetValue { .list([encode_String(v.path), encode_Int64(v.page), encode_Int64(v.scroll_ratio_scaled), encode_Int64(v.last_read_ms)]) }
 private func encode__List_RecentEntry_(_ v: [RecentEntry]) -> RivetValue { .list(v.map(encode_RecentEntry)) }
 private func encode_TargetLanguage(_ v: TargetLanguage) -> RivetValue { .string(v.rawValue) }
@@ -212,6 +212,7 @@ private func decode__List_String_(_ v: RivetValue) throws -> [String] { guard ca
 private func decode__List_List_String_(_ v: RivetValue) throws -> [[String]] { guard case .list(let xs) = v else { throw RivetGeneratedError.typeMismatch("(List (List String))") }; return try xs.map(decode__List_String_) }
 private func decode_Int64(_ v: RivetValue) throws -> Int64 { guard case .int64(let x) = v else { throw RivetGeneratedError.typeMismatch("Int64") }; return x }
 private func decode_StreamStart(_ v: RivetValue) throws -> StreamStart { guard case .list(let xs) = v, xs.count == 1 else { throw RivetGeneratedError.typeMismatch("StreamStart") }; return StreamStart(request_id: try decode_Int64(xs[0])) }
+private func decode_Bool(_ v: RivetValue) throws -> Bool { guard case .bool(let x) = v else { throw RivetGeneratedError.typeMismatch("Bool") }; return x }
 private func decode_Bytes(_ v: RivetValue) throws -> Data { guard case .bytes(let x) = v else { throw RivetGeneratedError.typeMismatch("Bytes") }; return x }
 private func decode_EditTextBox(_ v: RivetValue) throws -> EditTextBox { guard case .list(let xs) = v, xs.count == 5 else { throw RivetGeneratedError.typeMismatch("EditTextBox") }; return EditTextBox(page: try decode_Int64(xs[0]), x_ratio_milli: try decode_Int64(xs[1]), y_ratio_milli: try decode_Int64(xs[2]), text: try decode_String(xs[3]), size: try decode_Int64(xs[4])) }
 private func decode__List_EditTextBox_(_ v: RivetValue) throws -> [EditTextBox] { guard case .list(let xs) = v else { throw RivetGeneratedError.typeMismatch("(List EditTextBox)") }; return try xs.map(decode_EditTextBox) }
@@ -219,7 +220,6 @@ private func decode__List_Int64_(_ v: RivetValue) throws -> [Int64] { guard case
 private func decode_EpubTocItem(_ v: RivetValue) throws -> EpubTocItem { guard case .list(let xs) = v, xs.count == 3 else { throw RivetGeneratedError.typeMismatch("EpubTocItem") }; return EpubTocItem(title: try decode_String(xs[0]), chapter: try decode_Int64(xs[1]), level: try decode_Int64(xs[2])) }
 private func decode__List_EpubTocItem_(_ v: RivetValue) throws -> [EpubTocItem] { guard case .list(let xs) = v else { throw RivetGeneratedError.typeMismatch("(List EpubTocItem)") }; return try xs.map(decode_EpubTocItem) }
 private func decode_EpubView(_ v: RivetValue) throws -> EpubView { guard case .list(let xs) = v, xs.count == 3 else { throw RivetGeneratedError.typeMismatch("EpubView") }; return EpubView(title: try decode_String(xs[0]), chapters: try decode_Int64(xs[1]), toc: try decode__List_EpubTocItem_(xs[2])) }
-private func decode_Bool(_ v: RivetValue) throws -> Bool { guard case .bool(let x) = v else { throw RivetGeneratedError.typeMismatch("Bool") }; return x }
 private func decode_RecentEntry(_ v: RivetValue) throws -> RecentEntry { guard case .list(let xs) = v, xs.count == 4 else { throw RivetGeneratedError.typeMismatch("RecentEntry") }; return RecentEntry(path: try decode_String(xs[0]), page: try decode_Int64(xs[1]), scroll_ratio_scaled: try decode_Int64(xs[2]), last_read_ms: try decode_Int64(xs[3])) }
 private func decode__List_RecentEntry_(_ v: RivetValue) throws -> [RecentEntry] { guard case .list(let xs) = v else { throw RivetGeneratedError.typeMismatch("(List RecentEntry)") }; return try xs.map(decode_RecentEntry) }
 private func decode_TargetLanguage(_ v: RivetValue) throws -> TargetLanguage { guard case .string(let x) = v, let result = TargetLanguage(rawValue: x) else { throw RivetGeneratedError.typeMismatch("TargetLanguage") }; return result }
@@ -258,6 +258,10 @@ public struct RivetAPI: Sendable {
     public func chat(context_text: String, context_label: String, history: [[String]], user_message: String) async throws -> StreamStart {
         let result = try await client.call("chat", arguments: [encode_String(context_text), encode_String(context_label), encode__List_List_String_(history), encode_String(user_message)])
         return try decode_StreamStart(result)
+    }
+    public func check_updates(force: Bool) async throws -> Data {
+        let result = try await client.call("check-updates", arguments: [encode_Bool(force)])
+        return try decode_Bytes(result)
     }
     public func edit_append_doc(path: String, other_path: String) async throws -> Data {
         let result = try await client.call("edit-append-doc", arguments: [encode_String(path), encode_String(other_path)])
@@ -339,6 +343,10 @@ public struct RivetAPI: Sendable {
         let result = try await client.call("split-paragraphs", arguments: [encode_String(text)])
         return try decode__List_String_(result)
     }
+    public func start_download() async throws -> Void {
+        let result = try await client.call("start-download", arguments: [])
+        return try decode_Void(result)
+    }
     public func stop_stream(request_id: Int64) async throws -> Void {
         let result = try await client.call("stop-stream", arguments: [encode_Int64(request_id)])
         return try decode_Void(result)
@@ -358,6 +366,10 @@ public struct RivetAPI: Sendable {
     public func update_recents(path: String, page: Int64, scroll_ratio_scaled: Int64) async throws -> Void {
         let result = try await client.call("update-recents", arguments: [encode_String(path), encode_Int64(page), encode_Int64(scroll_ratio_scaled)])
         return try decode_Void(result)
+    }
+    public func update_state() async throws -> Data {
+        let result = try await client.call("update-state", arguments: [])
+        return try decode_Bytes(result)
     }
 
     // Shared state

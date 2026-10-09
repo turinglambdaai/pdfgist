@@ -20,7 +20,8 @@
 ;; Annotations cross as raw JSON bytes, so annotation rects keep their
 ;; page-space floats verbatim; no milli-unit conversion applies there.
 
-(require racket/file
+(require json
+         racket/file
          racket/list
          rivet/backend
          (prefix-in epub: "../racket/pdfgist/epub.rkt")
@@ -31,7 +32,9 @@
          "../racket/pdfgist/annotations.rkt"
          "../racket/pdfgist/i18n.rkt"
          "../racket/pdfgist/providers.rkt"
-         "../racket/pdfgist/settings.rkt")
+         "../racket/pdfgist/settings.rkt"
+         "updater.rkt"
+         "version.rkt")
 
 (provide start
          start-stdio)
@@ -447,6 +450,35 @@
                                        (record-ref b 'text)
                                        (record-ref b 'size)))
                                boxes)))
+
+;; ---- online updates (rivet/distribution; app/updater.rkt owns mechanics) --
+
+;; The Racket side verifies the Ed25519-signed channel manifest and streams
+;; the DMG on a background thread; the native host owns installation. The
+;; wire payloads are raw jsexpr bytes so hosts JSON-decode them (same shape
+;; as the payback family surface).
+
+(define (jsexpr->bytes j)
+  (string->bytes/utf-8 (jsexpr->string j)))
+
+(define auto-check-interval-seconds (* 24 60 60))
+
+(define-rpc (check-updates [force : Bool] : Bytes)
+  (define last (last-update-check-at))
+  (define throttled
+    (and (not force)
+         (exact-integer? last)
+         (< (- (current-seconds) last) auto-check-interval-seconds)))
+  (if throttled
+      (jsexpr->bytes (hasheq 'status "throttled"))
+      (jsexpr->bytes (perform-check!))))
+
+(define-rpc (start-download : Void)
+  (start-download!)
+  (void))
+
+(define-rpc (update-state : Bytes)
+  (jsexpr->bytes (update-state-snapshot)))
 
 ;; ---- transports ----
 

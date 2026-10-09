@@ -49,6 +49,9 @@ struct ContentView: View {
             PasswordSheet(wrong: prompt.wrong)
                 .interactiveDismissDisabled()
         }
+        .sheet(isPresented: $model.showUpdateSheet) {
+            UpdateView()
+        }
         .task { model.start() }
     }
 
