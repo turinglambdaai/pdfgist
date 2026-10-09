@@ -6,7 +6,41 @@ The v1 (Tauri) line's history lives in git tags and GitHub Releases on `main`.
 
 ## [Unreleased]
 
-## 1.1.0 - 2026-10-09
+## [1.2.0] - 2026-10-09
+
+Family packaging standard (the taskly v1.3.0 benchmark) applied to PDFGist.
+
+### Added
+
+- **Intel Mac support.** macOS now ships both architectures —
+  `pdfgist-<version>-macos-arm64.dmg` / `.zip` (Apple silicon) and
+  `pdfgist-<version>-macos-x64.dmg` / `.zip` (Intel, built on Intel
+  runners). The signed update feed carries both portable zips, and each
+  client picks its own architecture at check time (rivet/distribution
+  selects by platform *and* architecture).
+- **Portable zips.** Both macOS architectures ship a
+  `pdfgist-<version>-macos-<arch>.zip` alongside the drag-to-install
+  DMG; the in-app update feed now serves the zip.
+
+### Changed
+
+- **Release artifact naming** follows the family convention: lowercase
+  with an explicit architecture — `pdfgist-<version>-macos-<arch>.dmg`
+  replaces `PDFGist-v<version>-macos.dmg`.
+- The in-app updater downloads the portable zip and the native installer
+  unpacks it with `ditto` (DMG artifacts in a manifest remain supported).
+- Release metadata is gated by `scripts/check-release-version.sh`
+  (VERSION == rivet.rktd == updater constants == tag) in CI and in every
+  release job.
+
+### Note for 1.1.0 installations
+
+The 1.1.0 updater can verify and download this release but its installer
+only mounts DMGs, so it cannot install the new zip feed — update once
+manually: download `pdfgist-1.2.0-macos-arm64.dmg` from this release and
+drag it to Applications. From 1.2.0 on, in-app updates work again.
+
+## [1.1.0] - 2026-10-09
 
 Online updates. The app can now check for new releases and update itself.
 
@@ -26,7 +60,7 @@ Online updates. The app can now check for new releases and update itself.
   publishes the signed channel manifest `update-stable.json` alongside the
   DMG (SHA256SUMS and build-provenance attestation unchanged).
 
-## 1.0.0 - 2026-10-08
+## [1.0.0] - 2026-10-08
 
 First release of the Rivet line. macOS (Apple silicon, macOS 14+);
 the Windows and Linux hosts are under construction.

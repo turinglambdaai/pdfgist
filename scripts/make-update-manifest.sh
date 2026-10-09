@@ -1,19 +1,21 @@
 #!/usr/bin/env bash
-# Build the PDFGist update manifest (rivet format) over the final installer.
+# Build the PDFGist update manifest (rivet format) over the final artifacts.
 #
 # Usage: scripts/make-update-manifest.sh <tag> <dist-dir> <key-der-path>
-#   <tag>          release tag, e.g. v1.1.0 (must match rivet.rktd version)
-#   <dist-dir>     directory containing the drag-install DMG named by the
-#                  workflow:  PDFGist-<tag>-macos.dmg
+#   <tag>          release tag, e.g. v1.2.0 (must match the VERSION file)
+#   <dist-dir>     directory containing the release artifacts, i.e. the names
+#                  the release pipeline produces:
+#                    pdfgist-<ver>-macos-arm64.zip   pdfgist-<ver>-macos-x64.zip
 #   <key-der-path> Ed25519 private key in DER (SubjectPublicKeyInfo/OneAsymmetricKey)
 #                  form; the CI secret stores it base64-encoded.
 #
 # Overwrites <dist-dir>/update-stable.json — the signed stable-channel
-# manifest whose artifact entry points at the released DMG. The manifest is
-# regenerated here (rather than using the one `raco rivet release` wrote
-# inside the job) because the released DMG is rebuilt with the drag-to-
-# Applications layout after release produces its own plain DMG, and the
-# manifest must carry the final artifact's URL, size, and SHA-256.
+# manifest (family format: schema + base64 payload + signature block, as
+# written by rivet's own signer). One artifact entry per macOS
+# architecture; clients pick theirs via rivet/distribution's platform +
+# architecture filter, so both entries must be present and correctly
+# named. The feed serves the portable zips (the DMGs stay on the release
+# for human download).
 #
 # Env overrides: RELEASE_ASSET_BASE_URL, RIVET_UPDATE_KEY_ID.
 
@@ -26,18 +28,24 @@ VERSION="${TAG#v}"
 KEY_ID="${RIVET_UPDATE_KEY_ID:-pdfgist-2026-10}"
 BASE_URL="${RELEASE_ASSET_BASE_URL:-https://github.com/turinglambdaai/pdfgist/releases/download/$TAG}"
 
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
 # ---- verify tag/version alignment -------------------------------------------
-RKTD_VERSION="$(racket -e '(require racket/file) (displayln (hash-ref (file->value "rivet.rktd") (quote version)))' | tr -d '"')"
+[[ "$VERSION" == "$(tr -d '[:space:]' < "$ROOT/VERSION")" ]] || {
+  echo "error: tag $TAG does not match VERSION '$(cat "$ROOT/VERSION")'" >&2; exit 1; }
+RKTD_VERSION="$(grep -o '"[0-9]*\.[0-9]*\.[0-9]*"' "$ROOT/rivet.rktd" | head -n1 | tr -d '"')"
 if [ "$VERSION" != "$RKTD_VERSION" ]; then
   echo "error: tag $VERSION != rivet.rktd version $RKTD_VERSION" >&2
   exit 1
 fi
 
-DMG="$DIST/PDFGist-$TAG-macos.dmg"
-if [ ! -f "$DMG" ]; then
-  echo "error: missing installer: $DMG" >&2
-  exit 1
-fi
+for artifact in "$DIST/pdfgist-$VERSION-macos-arm64.zip" \
+                "$DIST/pdfgist-$VERSION-macos-x64.zip"; do
+  if [ ! -f "$artifact" ]; then
+    echo "error: missing installer: $artifact" >&2
+    exit 1
+  fi
+done
 
 # ---- build + sign the manifest with rivet's own signer -----------------------
 MANIFEST="$DIST/update-stable.json"
@@ -48,22 +56,21 @@ trap 'rm -f "$SCRIPT"' EXIT
 cat > "$SCRIPT" <<RKT
 #lang racket/base
 (require rivet/distribution
+         racket/date
          racket/file
-         racket/format
-         racket/string)
-(define tag "$TAG")
+         racket/format)
 (define version "$VERSION")
 (define base-url "$BASE_URL")
 (define key-id "$KEY_ID")
-(define dist (path->string (path->complete-path "$DIST")))
+(define dist (path->complete-path "$DIST"))
 (define key-path (path->complete-path "$KEY_PATH"))
-(define build (hash-ref (file->value "rivet.rktd") 'build))
+(define build (hash-ref (file->value (build-path (path->complete-path "$ROOT") "rivet.rktd")) 'build))
 
-(define (artifact file installer)
+(define (artifact platform architecture file installer)
   (define path (build-path dist file))
   (unless (file-exists? path)
     (error 'make-update-manifest "missing installer: ~a" path))
-  (update-artifact 'macos 'arm64
+  (update-artifact platform architecture
                    (string-append base-url "/" file)
                    (sha256-file/hex path)
                    (file-size path)
@@ -75,7 +82,7 @@ cat > "$SCRIPT" <<RKT
                    version
                    build
                    'stable
-                   ;; published-at: RFC 3339, second precision
+                   ;; published-at: RFC 3339, second precision, UTC
                    (let ([d (seconds->date (current-seconds) #f)])
                      (format "~a-~a-~aT~a:~a:~aZ"
                              (date-year d)
@@ -88,8 +95,14 @@ cat > "$SCRIPT" <<RKT
                    #f
                    #t
                    100
-                   (list (artifact (format "PDFGist-~a-macos.dmg" tag) 'dmg))))
+                   (list (artifact 'macos 'arm64
+                                   (format "pdfgist-~a-macos-arm64.zip" version) 'zip)
+                         (artifact 'macos 'x64
+                                   (format "pdfgist-~a-macos-x64.zip" version) 'zip))))
 
+;; write-signed-manifest validates the struct against the manifest schema
+;; before signing, so a malformed manifest fails the release instead of
+;; shipping something every client would reject.
 (call-with-output-file (build-path dist "update-stable.json")
   #:exists 'truncate/replace
   (lambda (out)
@@ -98,12 +111,13 @@ cat > "$SCRIPT" <<RKT
                            key-id
                            out)
     (newline out)))
-(printf "manifest: ~a (~a artifact)\\n"
+(printf "manifest: ~a (~a artifacts, key-id ~a)\\n"
         (build-path dist "update-stable.json")
-        (length (update-manifest-artifacts manifest)))
+        (length (update-manifest-artifacts manifest))
+        key-id)
 RKT
 
-# rivet must be installed for the signer; the job links a checkout
+# rivet must be installed for the signer; the publish job links a checkout
 racket "$SCRIPT"
 
-echo "manifest: $MANIFEST (macos artifact: $(basename "$DMG"))"
+echo "manifest: $MANIFEST (macos arm64 + x64 zips)"

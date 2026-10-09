@@ -138,19 +138,26 @@ enum UpdaterInstaller {
         try? FileManager.default.removeItem(at: targetURL.appendingPathExtension("old"))
     }
 
-    static func install(dmgAt dmgURL: URL) throws {
+    /// Dispatch on the downloaded artifact's container. The family update
+    /// feed serves portable zips; DMG manifests stay supported.
+    static func install(artifactAt artifactURL: URL) throws {
+        switch artifactURL.pathExtension.lowercased() {
+        case "zip": try installZip(artifactURL)
+        default:    try installDmg(artifactURL)
+        }
+    }
+
+    static func installDmg(_ dmgURL: URL) throws {
         let fileManager = FileManager.default
-        let targetURL = installationTargetURL()
         let mountPoint = fileManager.temporaryDirectory
             .appendingPathComponent("pdfgist-update-\(UUID().uuidString)")
 
         try fileManager.createDirectory(at: mountPoint, withIntermediateDirectories: true)
+        defer { try? run("/usr/bin/hdiutil", ["detach", mountPoint.path, "-force"]) }
 
         try run("/usr/bin/hdiutil", ["attach", "-nobrowse", "-readonly",
                                      "-mountpoint", mountPoint.path,
                                      dmgURL.path])
-        var detachLater = true
-        defer { if detachLater { try? run("/usr/bin/hdiutil", ["detach", mountPoint.path, "-force"]) } }
 
         let contents = try fileManager.contentsOfDirectory(at: mountPoint,
                                                            includingPropertiesForKeys: nil)
@@ -158,6 +165,37 @@ enum UpdaterInstaller {
             throw InstallerError.noAppFound(mountPoint.path)
         }
 
+        try swapIn(appURL)
+        finishInstall()
+    }
+
+    /// Portable-zip manifests (the family feed format): unpack with ditto,
+    /// which preserves the bundle's metadata and signature, and install the
+    /// .app found inside — same payload the DMG carries.
+    static func installZip(_ zipURL: URL) throws {
+        let fileManager = FileManager.default
+        let unpackDir = fileManager.temporaryDirectory
+            .appendingPathComponent("pdfgist-update-\(UUID().uuidString)")
+
+        try fileManager.createDirectory(at: unpackDir, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: unpackDir) }
+
+        try run("/usr/bin/ditto", ["-x", "-k", zipURL.path, unpackDir.path])
+
+        let contents = try fileManager.contentsOfDirectory(at: unpackDir,
+                                                           includingPropertiesForKeys: nil)
+        guard let appURL = contents.first(where: { $0.pathExtension == "app" }) else {
+            throw InstallerError.noAppFound(unpackDir.path)
+        }
+
+        try swapIn(appURL)
+        finishInstall()
+    }
+
+    /// Backup → copy → rollback-on-failure, shared by both container paths.
+    private static func swapIn(_ appURL: URL) throws {
+        let fileManager = FileManager.default
+        let targetURL = installationTargetURL()
         let backupURL = targetURL.appendingPathExtension("old")
         let hadPrevious = fileManager.fileExists(atPath: targetURL.path)
         if hadPrevious {
@@ -174,18 +212,16 @@ enum UpdaterInstaller {
             }
             throw error
         }
+    }
 
-        detachLater = false
-        try? run("/usr/bin/hdiutil", ["detach", mountPoint.path, "-force"])
-
-        // The DMG arrived over the network, so the quarantine xattr rides
-        // into the copied bundle and Gatekeeper would block the very update
-        // the user just approved. The backend already verified the artifact
-        // (Ed25519 manifest + SHA-256) — clearing it here is safe.
-        try? run("/usr/bin/xattr", ["-cr", targetURL.path])
-
-        // relaunch from the new bundle, then end the old process
-        NSWorkspace.shared.open(targetURL)
+    /// The artifact arrived over the network, so the quarantine xattr rides
+    /// into the copied bundle and Gatekeeper would block the very update
+    /// the user just approved. The backend already verified the artifact
+    /// (Ed25519 manifest + SHA-256) — clearing it here is safe. Then
+    /// relaunch from the new bundle and end the old process.
+    private static func finishInstall() {
+        try? run("/usr/bin/xattr", ["-cr", installationTargetURL().path])
+        NSWorkspace.shared.open(installationTargetURL())
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             NSApp.terminate(nil)
         }

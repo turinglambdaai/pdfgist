@@ -224,13 +224,27 @@
 
 ;; ---------- download ----------
 
+;; Container file extension for a manifest installer symbol. The family
+;; feed serves portable zips; DMG (and later MSI/targz) manifests stay
+;; supported. Unknown symbols fall back to the platform default so a
+;; future installer kind cannot crash the download path.
+(define (installer-extension/symbol sym)
+  (case sym
+    [(zip) ".zip"]
+    [(dmg) ".dmg"]
+    [(msi) ".msi"]
+    [(targz) ".tar.gz"]
+    [else (installer-extension)]))
+
 (define (destination-path candidate)
+  (define artifact (update-candidate-artifact candidate))
   (define version
     (update-manifest-version (update-candidate-manifest candidate)))
   (build-path (config-dir-path)
               "updates"
               (string-append app-display-name "-" version
-                             (installer-extension))))
+                             (installer-extension/symbol
+                              (update-artifact-installer artifact)))))
 
 ;; copy with progress; same limits as rivet's download-update but publishes
 ;; integer percent changes to the state box while streaming

@@ -1269,7 +1269,7 @@ private final class EventRelay {
         guard updateState.phase == "downloaded",
               let path = updateState.downloadedPath else { return }
         do {
-            try UpdaterInstaller.install(dmgAt: URL(fileURLWithPath: path))
+            try UpdaterInstaller.install(artifactAt: URL(fileURLWithPath: path))
         } catch {
             alert(L10n.t("ui.update.install-failed", "\(error)"))
         }
