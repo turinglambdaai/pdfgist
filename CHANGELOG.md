@@ -2,9 +2,44 @@
 
 All notable changes to PDFGist are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is semver.
-The v1 (Tauri) line's history lives in git tags and GitHub Releases on `main`.
+The 1.x release era was retired in the version epoch reset below; its
+releases and tags were deleted and the history lives in git on `main`.
 
 ## [Unreleased]
+
+## [0.1.0] - 2026-10-10
+
+Version epoch reset. The technical rewrite on Rivet is settled and the
+project enters the 0.x feature-validation phase: the 1.x release line
+(1.0.0 – 1.2.0) and its tags were removed, and 0.1.0 is the first release
+of the new epoch. Functionally identical to the retired 1.2.0 — its entry
+is summarized here so this section stands alone as release notes.
+
+### Added
+
+- **Intel Mac support.** macOS ships both architectures —
+  `pdfgist-<version>-macos-arm64.dmg` / `.zip` (Apple silicon) and
+  `pdfgist-<version>-macos-x64.dmg` / `.zip` (Intel, built on Intel
+  runners). The signed update feed carries both portable zips, and each
+  client picks its own architecture at check time (rivet/distribution
+  selects by platform *and* architecture).
+- **Portable zips.** Both macOS architectures ship a
+  `pdfgist-<version>-macos-<arch>.zip` alongside the drag-to-install
+  DMG; the in-app update feed serves the zip.
+
+### Changed
+
+- **Release artifact naming** follows the family convention: lowercase
+  with an explicit architecture — `pdfgist-<version>-macos-<arch>.dmg`
+  replaces `PDFGist-v<version>-macos.dmg`.
+- The in-app updater downloads the portable zip and the native installer
+  unpacks it with `ditto` (DMG artifacts in a manifest remain supported).
+- **Upstream Rivet alignment.** Rivet main scopes generated Swift records
+  and enums under `RivetTypes`; the macOS host's call sites were migrated
+  accordingly (`RecentEntry` → `RivetTypes.RecentEntry` and so on).
+- Release metadata is gated by `scripts/check-release-version.sh`
+  (VERSION == rivet.rktd == updater constants == tag) in CI and in every
+  release job.
 
 ## [1.2.0] - 2026-10-09
 

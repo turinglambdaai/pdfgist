@@ -2,7 +2,7 @@
 # Build the PDFGist update manifest (rivet format) over the final artifacts.
 #
 # Usage: scripts/make-update-manifest.sh <tag> <dist-dir> <key-der-path>
-#   <tag>          release tag, e.g. v1.2.0 (must match the VERSION file)
+#   <tag>          release tag, e.g. v0.1.0 (must match the VERSION file)
 #   <dist-dir>     directory containing the release artifacts, i.e. the names
 #                  the release pipeline produces:
 #                    pdfgist-<ver>-macos-arm64.zip   pdfgist-<ver>-macos-x64.zip

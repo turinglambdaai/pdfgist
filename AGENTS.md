@@ -3,7 +3,7 @@
 指引给 AI agent（及开发者）：如何理解、构建、运行、改动 PDFGist。
 
 > main 是 PDFGist 的开发主线，纯 Rivet 架构（Rivet 线自 2026-10-08 接替）。
-> v1 是已归档的 Tauri 2 + PDF.js 实现，仅存于 git 历史与 v1.x tag；
+> v1 是已归档的 Tauri 2 + PDF.js 实现，仅存于 git 历史；
 > v1 的行为/文案语义已由领域核心承接。
 
 ## 这是什么
@@ -42,7 +42,7 @@ raco test racket/          # 领域核心测试（275 项）
 ## 项目结构
 
 ```
-├── rivet.rktd          Rivet 应用清单（1.2.0，与 VERSION / app/version.rkt 对齐）
+├── rivet.rktd          Rivet 应用清单（0.1.0，与 VERSION / app/version.rkt 对齐）
 ├── rivet-schema.json   RPC 面基线
 ├── app/backend.rkt     Rivet 后端入口（装配领域层）
 ├── racket/             Racket 领域核心（含 pdfdoc PDF 读写器）+ tests/
