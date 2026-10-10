@@ -1,69 +1,46 @@
-# Linux host (GTK4)
+# Linux host (GTK4) — scaffold, under construction
 
-The third first-party host: a GTK4 window over one embedded Racket CS
-backend, speaking RVT1 through the shared `runtime/` codec. The embedding
-contract mirrors `platform/windows/runtime` — the same public Racket CS C API
-and the same threading rules — with a connected `socketpair` standing in for
-the Win32 named pipe pair. The Racket input and output ports receive distinct
-descriptors for that socket so their ownership and shutdown behavior are
-unambiguous.
+The Linux host is **not part of any release yet**. The plan is a GTK4 window
+over one embedded Racket CS backend, speaking RVT1 through the shared
+`runtime/` codec via rivet's Linux runtime bridge (`rivet::linux_runtime` —
+the same embedding contract as `rivet::windows`, with a connected
+`socketpair` standing in for the Win32 named pipe pair).
 
-Status: **developer preview**. CI compiles the runtime bridge against Racket's
-public embedding headers and exercises startup, concurrent RPCs, State access,
-cancellation, overload, shutdown, project scaffolding, CLI build, packaging,
-verification, and release against a real embedded Racket CS instance.
+What is here today is the **rivet template scaffold**, not a PDF reader:
 
-## Layout
+- `src/main.cpp` — a GTK4 counter demo over the generated client: boot the
+  runtime off the UI thread, render one State value, one button. No document
+  view, no tabs, no AI workflow — the reader UI lives only in `macos-host/`.
+- `GeneratedBackend.hpp` — the generated client for the full PDFGist schema
+  (chat / summarize / translate / epub / edit / settings / updates). The
+  scaffold UI does not call any of it yet.
+- `CMakeLists.txt` — builds the scaffold against `$RIVET_ROOT` (rivet's
+  `platform/linux/runtime` + `runtime/include`) and an embeddable Racket CS.
 
-```text
-platform/linux/
-├── runtime/
-│   ├── backend.hpp        # rivet::linux_runtime::Backend — same contract as rivet::windows
-│   └── backend.cpp        # racketcs boot + RVT1-over-socketpair transport
-├── system/
-│   ├── system_services.hpp  # rivet::system — single-instance, notifications,
-│   └── system_services.cpp  #   autostart, Secret Service, crash hook, capabilities
-└── host/
-    ├── GeneratedBackend.hpp  # scaffold schema; raco rivet build replaces it
-    ├── CMakeLists.txt
-    └── src/main.cpp       # GTK4 counter demo over the generated client
-```
+Known staleness: `main.cpp` still calls the template-era counter API
+(`get_counter_async` / `set_counter_async`), which the PDFGist backend schema
+no longer exposes. The scaffold does not compile against the checked-in
+generated client and needs rework onto the real API before reader-UI work
+resumes. `windows/` is in the same state; pdfgist's CI does not compile
+either host yet. Progress is tracked in the top-level README roadmap
+("Windows & Linux host builds").
 
 ## Building by hand
 
 Requirements: an embeddable Racket CS build, CMake ≥ 3.24, pkg-config, GTK 4,
 zlib, LZ4, curses, and a graphical session (or Xvfb) to run. The standard
 prebuilt Linux Racket installer does not ship `libracketcs` or the three boot
-files; build and install
-Racket CS from a source distribution as described by Racket's embedding guide.
-The CI workflow uses the official minimal "source + built libraries" archive so
-the build remains reasonably small.
+files; build and install Racket CS from a source distribution as described by
+Racket's embedding guide.
 
 ```bash
-export RIVET_ROOT="$PWD"
+export RIVET_ROOT=/path/to/rivet
 export RIVET_RACKET_INCLUDE=/path/to/racket/include
 export RIVET_RACKET_LIBRARY=/path/to/racket/lib/libracketcs.a
-cmake -S platform/linux/host -B /tmp/rivet-linux-build
-cmake --build /tmp/rivet-linux-build
+cmake -S linux -B /tmp/pdfgist-linux-build
+cmake --build /tmp/pdfgist-linux-build
 ```
 
-The executable must sit beside a staged runtime to start: put `runtime/*.boot`
-and `res/core.zo` (produced by `raco ctool --mods`, the same artifacts every
-platform host consumes) next to `RivetHost`. `raco rivet build`, `dev`, and
-`package` create this layout automatically.
-
-## Honest gaps
-
-- Production releases use `raco rivet release`: a deterministic self-contained
-  `.tar.gz` with a detached Ed25519 signature, verified by re-deriving the
-  archive from the package directory. Distro-native packages (`.deb`/`.rpm`,
-  AppImage, apt repository trust) and OS-integrated update installation are
-  follow-up work.
-- The system adapter covers single-instance, notifications, XDG autostart,
-  Secret Service secure storage, and crash hooks, with runtime capability
-  reporting. The tray contract is deliberately absent: StatusNotifierItem
-  hosting is compositor-dependent, so it belongs to an explicit application
-  policy, not an adapter default.
-- GTK is a toolkit, not a display protocol: global hotkeys and always-on-top
-  overlays are compositor-dependent. Application hosts that need them must
-  define an explicit X11/Wayland policy.
+The executable must sit beside a staged runtime to start: `runtime/*.boot`
+and `res/core.zo` (the same artifacts every platform host consumes;
+`raco rivet build`, `dev`, and `package` create this layout automatically).
